@@ -23,9 +23,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
-     inkscape:zoom="3.3640324"
-     inkscape:cx="18.430262"
-     inkscape:cy="3.4185164"
+     inkscape:zoom="8.4465079"
+     inkscape:cx="1.3615094"
+     inkscape:cy="12.253585"
      inkscape:window-width="1392"
      inkscape:window-height="1212"
      inkscape:window-x="0"
@@ -38,10 +38,10 @@
        clipPathUnits="userSpaceOnUse"
        id="clipPath1">
       <g
-         id="g3"
+         id="g245"
          transform="matrix(3.1249939,0,0,3.1249961,820.27544,-415.13679)">
         <g
-           id="g2">
+           id="g3">
           <rect
              x="4.9524903e-07"
              y="4.2492065e-08"
@@ -57,12 +57,12 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1"
-     transform="translate(-103.1875,-144.72708)">
+     transform="translate(-105.83334,-79.374999)">
     <g
-       transform="matrix(0.08466683,0,0,0.08466677,31.153059,97.329881)"
+       transform="matrix(0.08466683,0,0,0.08466677,33.798899,31.977798)"
        id="g219"
        clip-path="url(#clipPath1)"
-       style="clip-rule:evenodd;fill-rule:evenodd;stroke-linecap:round;stroke-linejoin:round">
+       style="clip-rule:evenodd;fill-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5">
                     <g
    transform="matrix(4.16667,0,0,4.16667,-76.9116,500.213)"
    id="g181">

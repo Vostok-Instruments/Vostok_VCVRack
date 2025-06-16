@@ -25,7 +25,6 @@ struct Trace : Module {
 		NUM2_LIGHT,
 		NUM3_LIGHT,
 		NUM4_LIGHT,
-		SCAN_LIGHT,
 		LIGHTS_LEN
 	};
 
@@ -71,22 +70,8 @@ struct Trace : Module {
 		outputs[OUT_OUTPUT].setVoltage(out);
 	}
 
-	// const float centres[4] = {0.0, 1.45, 2.9, 4.35}; // path settings V
-	const float centres[4] = {0.5, 1.85, 3.2, 4.5}; // trace settings V
-	float gainForChannel(int channel, float routeValue) {
-		float routeValueForChannel = (routeValue - centres[channel] / 5.f);
-		if (channel == 0) {
-			routeValueForChannel = std::max(0.f, routeValueForChannel);
-		}
-		else if (channel == 3) {
-			routeValueForChannel = std::min(0.f, routeValueForChannel);
-		}
-		routeValueForChannel = std::abs(routeValueForChannel);
-
-		float gain = (channel == 0 || channel == 3) ? 0.86f : 0.85f;
-		return gain * std::exp2f(-routeValueForChannel * routeValueForChannel * routeValueForChannel * 290.f);
-	}
 };
+
 
 
 struct TraceWidget : ModuleWidget {
@@ -97,7 +82,7 @@ struct TraceWidget : ModuleWidget {
 		addChild(createWidget<ScrewBlack>(Vec(RACK_GRID_WIDTH, 0)));
 		addChild(createWidget<ScrewBlack>(Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT - RACK_GRID_WIDTH)));
 
-		addParam(createLightParam<VostokLightSlider<YellowLight>>(mm2px(Vec(6.681, 52.264)), module, Trace::SCAN_PARAM, Trace::SCAN_LIGHT));
+		addParam(createParam<VostokSlider>(mm2px(Vec(6.681, 52.264)), module, Trace::SCAN_PARAM));
 		addParam(createParam<CKSSHoriz2>(mm2px(Vec(7.0, 97.063)), module, Trace::PLUS_MINUS_PARAM));
 		addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(10.123, 110.004)), module, Trace::SCAN_CV_PARAM));
 
@@ -110,10 +95,10 @@ struct TraceWidget : ModuleWidget {
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.015, 15.203)), module, Trace::OUT_OUTPUT));
 
 
-		addChild(createLight<VostokNumberOrangeLed<1>>(mm2px(Vec(2.584, 82.545)), module, Trace::NUM1_LIGHT));
-		addChild(createLight<VostokNumberOrangeLed<2>>(mm2px(Vec(12.89, 72.488)), module, Trace::NUM2_LIGHT));
-		addChild(createLight<VostokNumberOrangeLed<3>>(mm2px(Vec(1.56, 62.668)), module, Trace::NUM3_LIGHT));
-		addChild(createLight<VostokNumberOrangeLed<4>>(mm2px(Vec(12.560, 52.488)), module, Trace::NUM4_LIGHT));
+		addChild(createLight<VostokOrangeNumberLed<1>>(mm2px(Vec(2.584, 82.545)), module, Trace::NUM1_LIGHT));
+		addChild(createLight<VostokOrangeNumberLed<2>>(mm2px(Vec(12.89, 72.488)), module, Trace::NUM2_LIGHT));
+		addChild(createLight<VostokOrangeNumberLed<3>>(mm2px(Vec(1.56, 62.668)), module, Trace::NUM3_LIGHT));
+		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(12.560, 52.488)), module, Trace::NUM4_LIGHT));
 
 	}
 };

@@ -83,12 +83,12 @@ struct CeresWidget : ModuleWidget {
 			addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(26.74, y)), module, Ceres::OUT1_OUTPUT + i));
 		}
 
-		addChild(createLight<VostokNumberLed<1>>(mm2px(Vec(30.847, 19.259)), module, Ceres::NUM1_LIGHT + 0));
-		addChild(createLight<VostokNumberLed<2>>(mm2px(Vec(30.847, 37.665)), module, Ceres::NUM1_LIGHT + 1));
-		addChild(createLight<VostokNumberLed<3>>(mm2px(Vec(30.460, 56.040)), module, Ceres::NUM1_LIGHT + 2));
-		addChild(createLight<VostokNumberLed<4>>(mm2px(Vec(30.460, 74.537)), module, Ceres::NUM1_LIGHT + 3));
-		addChild(createLight<VostokNumberLed<5>>(mm2px(Vec(30.794, 92.853)), module, Ceres::NUM1_LIGHT + 4));
-		addChild(createLight<VostokNumberLed<6>>(mm2px(Vec(30.794, 111.296)), module, Ceres::NUM1_LIGHT + 5));
+		addChild(createLight<VostokWhiteNumberLed<1>>(mm2px(Vec(30.847, 19.259)), module, Ceres::NUM1_LIGHT + 0));
+		addChild(createLight<VostokWhiteNumberLed<2>>(mm2px(Vec(30.847, 37.665)), module, Ceres::NUM1_LIGHT + 1));
+		addChild(createLight<VostokWhiteNumberLed<3>>(mm2px(Vec(30.460, 56.040)), module, Ceres::NUM1_LIGHT + 2));
+		addChild(createLight<VostokWhiteNumberLed<4>>(mm2px(Vec(30.460, 74.537)), module, Ceres::NUM1_LIGHT + 3));
+		addChild(createLight<VostokWhiteNumberLed<5>>(mm2px(Vec(30.794, 92.853)), module, Ceres::NUM1_LIGHT + 4));
+		addChild(createLight<VostokWhiteNumberLed<6>>(mm2px(Vec(30.794, 111.296)), module, Ceres::NUM1_LIGHT + 5));
 
 	}
 };

@@ -93,6 +93,10 @@ struct SenaWidget : ModuleWidget {
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(49.079, 112.652)), module, Sena::BROWN_OUTPUT));
 
 		// leds
+		addChild(createLight<VostokOrangeNumberLed<1>>(mm2px(Vec(30.878, 19.259)), module, Sena::NUM1_LIGHT + 0));
+		addChild(createLight<VostokOrangeNumberLed<2>>(mm2px(Vec(30.878, 42.639)), module, Sena::NUM1_LIGHT + 1));
+		addChild(createLight<VostokOrangeNumberLed<3>>(mm2px(Vec(30.490, 66.014)), module, Sena::NUM1_LIGHT + 2));
+		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(30.490, 89.511)), module, Sena::NUM1_LIGHT + 3));
 	}
 };
 

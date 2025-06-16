@@ -66,21 +66,6 @@ struct Path : Module {
 		lights[NUM3_LIGHT].setBrightness(outGain3);
 		lights[NUM4_LIGHT].setBrightness(outGain4);
 	}
-
-	// centres: 0.0, 1.45, 2.9, 4.35V
-	const float centres[4] = {0.0, 1.45, 2.9, 4.35};
-	float gainForChannel(int channel, float routeValue) {
-		float routeValueForChannel = (routeValue - centres[channel] / 5.f);
-				if (channel == 0) { 
-			routeValueForChannel = std::max(0.f, routeValueForChannel);
-		} else if (channel == 3) {
-			routeValueForChannel = std::min(0.f, routeValueForChannel);
-		}
-		routeValueForChannel = std::abs(routeValueForChannel);
-		
-		float gain = (channel == 0 || channel == 3) ? 0.89f : 0.865f;
-		return gain * std::exp2f(-routeValueForChannel * routeValueForChannel * routeValueForChannel * 290.f);
-	}
 };
 
 
@@ -104,10 +89,10 @@ struct PathWidget : ModuleWidget {
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(5.315, 41.203)), module, Path::OUT1_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.015, 41.203)), module, Path::OUT2_OUTPUT));
 
-		addChild(createLight<VostokNumberLed<1>>(mm2px(Vec(2.584, 82.545)), module, Path::NUM1_LIGHT));
-		addChild(createLight<VostokNumberLed<2>>(mm2px(Vec(12.89, 72.488)), module, Path::NUM2_LIGHT));
-		addChild(createLight<VostokNumberLed<3>>(mm2px(Vec(1.56, 62.668)), module, Path::NUM3_LIGHT));
-		addChild(createLight<VostokNumberLed<4>>(mm2px(Vec(12.560, 52.488)), module, Path::NUM4_LIGHT));
+		addChild(createLight<VostokWhiteNumberLed<1>>(mm2px(Vec(2.584, 82.545)), module, Path::NUM1_LIGHT));
+		addChild(createLight<VostokWhiteNumberLed<2>>(mm2px(Vec(12.89, 72.488)), module, Path::NUM2_LIGHT));
+		addChild(createLight<VostokWhiteNumberLed<3>>(mm2px(Vec(1.56, 62.668)), module, Path::NUM3_LIGHT));
+		addChild(createLight<VostokWhiteNumberLed<4>>(mm2px(Vec(12.560, 52.488)), module, Path::NUM4_LIGHT));
 
 	}
 };

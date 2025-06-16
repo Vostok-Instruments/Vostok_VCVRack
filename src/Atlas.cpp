@@ -14,7 +14,7 @@ struct Atlas : Module {
 	enum InputId {
 		ENUMS(IN1_INPUT, NUM_CHANNELS),
 		ENUMS(FREQ1_INPUT, NUM_CHANNELS),
-		ENUMS(FM_RES1_INPUT,		 NUM_CHANNELS),
+		ENUMS(FM_RES1_INPUT, NUM_CHANNELS),
 		SCAN_IN_INPUT,
 		INPUTS_LEN
 	};
@@ -24,7 +24,7 @@ struct Atlas : Module {
 		OUTPUTS_LEN
 	};
 	enum LightId {
-		SCAN_LIGHT,
+		ENUMS(NUM1_LIGHT, NUM_CHANNELS),
 		LIGHTS_LEN
 	};
 
@@ -33,9 +33,14 @@ struct Atlas : Module {
 		HP,
 		BP
 	};
+	enum CVDest {
+		RES,
+		FM2
+	};
 
 	ripples::RipplesEngine engines[NUM_CHANNELS];
-
+	dsp::ClockDivider lightDivider;
+	const static int LIGHT_UPDATE_RATE = 32; // 32 frames per light update
 
 	Atlas() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -43,7 +48,7 @@ struct Atlas : Module {
 		for (int i = 0; i < NUM_CHANNELS; i++) {
 			configParam(FREQ1_PARAM + i, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), std::log2(ripples::kFreqKnobMax), string::f("Ch. %d frequency", i), " Hz", 2.f);
 			configParam(RES1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d Resonance", i + 1));
-			configSwitch(FM_RES_1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d CV Dest.", i + 1), {"Resonance", "FM"});
+			configSwitch(FM_RES_1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d CV Dest.", i + 1), {"Resonance", "FM2"});
 			configSwitch(MODE1_PARAM + i, 0.f, 2.f, 0.f, string::f("Ch. %d Filter Mode", i + 1), {"LP (4-pole)", "HP (2-pole)", "BP (4-pole)"});
 			configInput(IN1_INPUT + i, string::f("Ch. %d", i + 1));
 			configInput(FREQ1_INPUT + i, string::f("Ch. %d Freq", i + 1));
@@ -53,8 +58,9 @@ struct Atlas : Module {
 
 		configParam(SCAN_PARAM, 0.f, 1.f, 0.f, "Scan");
 		configOutput(SCAN_OUT_OUTPUT, "Scan");
-	}
 
+		lightDivider.setDivision(LIGHT_UPDATE_RATE);
+	}
 
 	void onReset(const ResetEvent& e) override {
 		reset(APP->engine->getSampleRate());
@@ -73,29 +79,38 @@ struct Atlas : Module {
 
 	void process(const ProcessArgs& args) override {
 
+		// Reuse the same frame object for multiple engines because some params aren't touched.
+		ripples::RipplesEngine::Frame frame;
+		frame.fm_knob = 1.;
+		frame.gain_cv_present = false;
+
+		const bool updateLeds = lightDivider.process();
+
 		float normalInput = 0.f;
 		for (int i = 0; i < NUM_CHANNELS; i++) {
 
-			// Reuse the same frame object for multiple engines because the params aren't touched.
-			ripples::RipplesEngine::Frame frame;
 			frame.res_knob = params[RES1_PARAM + i].getValue();
 			frame.freq_knob = rescale(params[FREQ1_PARAM + i].getValue(), std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), 0.f, 1.f);
-			frame.fm_knob = 0.; //params[FM_PARAM].getValue();
-			frame.gain_cv_present = false; //inputs[GAIN_INPUT].isConnected();
 
-			frame.res_cv = 0.f; //inputs[RES_INPUT].getPolyVoltage(c);
-			frame.freq_cv = 0.f; //inputs[FREQ_INPUT].getPolyVoltage(c);
-			frame.fm_cv = 0.f; //inputs[FM_INPUT].getPolyVoltage(c);
+			const CVDest cvDest = static_cast<CVDest>(params[FM_RES_1_PARAM + i].getValue());
+			frame.res_cv = (cvDest == RES) ? inputs[FM_RES1_INPUT + i].getVoltage() : 0.f;
+			frame.fm_cv = (cvDest == FM2) ? inputs[FM_RES1_INPUT + i].getVoltage() : 0.f;
+			frame.freq_cv = inputs[FREQ1_INPUT + i].getVoltage();
 
 			frame.input = inputs[IN1_INPUT + i].isConnected() ? inputs[IN1_INPUT + i].getVoltageSum() : normalInput;
 			normalInput = frame.input;
-			//frame.gain_cv = inputs[GAIN_INPUT].getPolyVoltage(c);
 
 			engines[i].process(frame);
 
 			const FilterMode mode = static_cast<FilterMode>(params[MODE1_PARAM + i].getValue());
-			float output = mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : frame.hp2);
+			// Atlas actually corrects for inverting effect
+			float output = -(mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : frame.hp2));
 			outputs[OUT1_OUTPUT + i].setVoltage(output);
+
+			if (updateLeds) {
+				const int lightIndex = NUM1_LIGHT + i;
+				lights[lightIndex].setSmoothBrightness(std::abs(normalInput / 10.f), args.sampleTime * LIGHT_UPDATE_RATE);
+			}
 		}
 	}
 };
@@ -127,8 +142,17 @@ struct AtlasWidget : ModuleWidget {
 
 		}
 
-		addParam(createLightParam<VostokLightSliderHoriz<YellowLight>>(mm2px(Vec(46.752, 111.224)), module, Atlas::SCAN_PARAM, Atlas::SCAN_LIGHT));
+		addParam(createParam<VostokSliderHoriz>(mm2px(Vec(46.752, 111.224)), module, Atlas::SCAN_PARAM));
+		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(28.68, 112.704)), module, Atlas::SCAN_IN_INPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(37.914, 112.704)), module, Atlas::SCAN_OUT_OUTPUT));
+
+
+		// leds
+		addChild(createLight<VostokOrangeNumberLed<1>>(mm2px(Vec(41.461, 19.259)), module, Atlas::NUM1_LIGHT + 0));
+		addChild(createLight<VostokOrangeNumberLed<2>>(mm2px(Vec(41.461, 42.639)), module, Atlas::NUM1_LIGHT + 1));
+		addChild(createLight<VostokOrangeNumberLed<3>>(mm2px(Vec(41.074, 66.014)), module, Atlas::NUM1_LIGHT + 2));
+		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(41.074, 89.511)), module, Atlas::NUM1_LIGHT + 3));
+
 	}
 };
 
