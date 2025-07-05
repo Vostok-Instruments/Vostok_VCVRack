@@ -23,11 +23,21 @@ struct Fuji : Module {
 		LIGHTS_LEN
 	};
 
+	enum Mode {
+		AD,  // Attack-Decay
+		HOLD // Hold
+	};
+	enum Loop {
+		ONE_SHOT, // One Shot
+		LOOP      // Loop
+	};
+
+
 	Fuji() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		for (int i = 0; i < NUM_CHANNELS; i++) {
-			configParam(ATTACK1_PARAM + i, 0.f, 1.f, 0.f, string::f("Attack Ch. %d", i + 1));
-			configParam(DECAY1_PARAM + i, 0.f, 1.f, 0.f, string::f("Decay Ch. %d", i + 1));
+			configParam(ATTACK1_PARAM + i, -3.f, 0.f, 0.f, string::f("Attack Ch. %d", i + 1), " s", 10.f);
+			configParam(DECAY1_PARAM + i, -3.f, 0.f, 0.f, string::f("Decay Ch. %d", i + 1), " s", 10.f);
 			configSwitch(MODE1_PARAM + i, 0.f, 1.f, 0.f, string::f("Mode Ch. %d", i + 1), {"AD Mode", "Hold Mode"});
 			configSwitch(LOOP1_PARAM + i, 0.f, 1.f, 0.f, string::f("Loop Ch. %d", i + 1), {"One Shot", "Loop"});
 			configInput(GATE1_INPUT + i, string::f("Gate Ch. %d", i + 1));
@@ -35,10 +45,37 @@ struct Fuji : Module {
 		}
 	}
 
+	dsp::ExponentialSlewLimiter attackSlew[NUM_CHANNELS];
+	dsp::ExponentialSlewLimiter decaySlew[NUM_CHANNELS];
+	dsp::SchmittTrigger gateTrigger[NUM_CHANNELS];
+	dsp::PulseGenerator pulseGen[NUM_CHANNELS];
+
 	void process(const ProcessArgs& args) override {
 
 		for (int i = 0; i < NUM_CHANNELS; i++) {
-			lights[NUM1_LIGHT + i].setBrightness(params[ATTACK1_PARAM + i].getValue());
+
+			float attackTime = std::pow(10, params[ATTACK1_PARAM + i].getValue()); 	// range 1ms to 1s
+			float decayTime = std::pow(10, params[DECAY1_PARAM + i].getValue()); 	// range 1ms to 1s
+			const Mode mode = static_cast<Mode>(params[MODE1_PARAM + i].getValue());
+			const Loop loop = static_cast<Loop>(params[LOOP1_PARAM + i].getValue());
+
+			if (gateTrigger[i].process(inputs[GATE1_INPUT + i].getVoltage())) {
+				pulseGen[i].trigger(1.2 * attackTime);
+			}
+						
+			// Gate is high, start attack phase
+			attackSlew[i].setRiseFallTau(attackTime, decayTime);
+
+			float slewSignal = pulseGen[i].process(args.sampleTime);
+			if (mode == HOLD) {
+				slewSignal = std::max(slewSignal, gateTrigger[i].isHigh() ? 1.f : 0.f);
+			}
+
+			float envelope = attackSlew[i].process(args.sampleTime, slewSignal);
+
+			outputs[OUT1_OUTPUT + i].setVoltage(envelope * 10.f); // Scale to 10V
+			
+			lights[NUM1_LIGHT + i].setBrightness(envelope);
 		}
 
 	}

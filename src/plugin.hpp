@@ -15,7 +15,7 @@ extern Model* modelAtlas;
 extern Model* modelCeres;
 extern Model* modelFuji;
 extern Model* modelSena;
-
+extern Model* modelHive;
 
 enum COLORS {
 	C_WHITE = 0,
