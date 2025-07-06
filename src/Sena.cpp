@@ -127,6 +127,10 @@ struct Sena : Module {
 		SAW,
 		SQUARE
 	};
+	enum Mode {
+		LFO,
+		VCO,
+	};
 
 	// uses a 2*6=12th order Butterworth filter
 	chowdsp::VariableOversampling<6, float_4> oversamplerFM;
@@ -140,24 +144,53 @@ struct Sena : Module {
 	const std::string channelNames[4] = { "Sine", "Triangle", "Saw", "Square" };
 
 	// VCO mode ranges
-	const float kVcoFreqKnobMin = 15.f; // max frequency knob value
-	const float kVcoFreqKnobMax = 1000.f; // min frequency knob value
-	const float kVcoDefaultFreq = dsp::FREQ_C4;
+	constexpr static float kVcoFreqKnobMin = 15.f; // max frequency knob value
+	constexpr static float kVcoFreqKnobMax = 1000.f; // min frequency knob value
 
 	// LFO mode ranges
-	const float kLfoFreqKnobMin = 0.15f; // max frequency knob value
-	const float kLfoFreqKnobMax = 10.f; // min frequency knob value
+	constexpr static float kLfoFreqKnobMin = 0.15f; // max frequency knob value
+	constexpr static float kLfoFreqKnobMax = 10.f; // min frequency knob value
 
 
 	// noise parts
 	PinkNoiseGenerator pinkNoiseGenerator;
 	float lastBrown = 0.f;
 	float lastPink = 0.f;
+	PinkNoiseGenerator pinkNoiseGenerator2;
+	chowdsp::BiquadFilter dcBlockFilter;
+
+	struct FreqParamQuantity : public ParamQuantity {
+		Mode mode = VCO; // default mode is VCO
+
+		float getDisplayValue() override {
+
+			float frequenciesScaled;
+			if (mode == VCO) {
+				frequenciesScaled = rescale(getValue(), 0.f, 1.f, std::log2(kVcoFreqKnobMin), std::log2(kVcoFreqKnobMax));
+			}
+			else {
+				frequenciesScaled = rescale(getValue(), 0.f, 1.f, std::log2(kLfoFreqKnobMin), std::log2(kLfoFreqKnobMax));
+			}
+			return std::pow(2.f, frequenciesScaled);
+		}
+
+		void setDisplayValue(float displayValue) override {
+			float frequenciesScaled = std::log2(displayValue);
+			if (mode == VCO) {
+				setValue(rescale(frequenciesScaled, std::log2(kVcoFreqKnobMin), std::log2(kVcoFreqKnobMax), 0.f, 1.f));
+			}
+			else {
+				setValue(rescale(frequenciesScaled, std::log2(kLfoFreqKnobMin), std::log2(kLfoFreqKnobMax), 0.f, 1.f));
+			}			
+		}
+	};
+
+	FreqParamQuantity* freqParams[NUM_CHANNELS];
 
 	Sena() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		for (int i = 0; i < NUM_CHANNELS; ++i) {
-			configParam(FREQ1_PARAM + i, 0.f, 1.f, 0.5f, "Frequency", "Hz");
+			freqParams[i] = configParam<FreqParamQuantity>(FREQ1_PARAM + i, 0.f, 1.f, 0.5f, "Frequency", "Hz");
 			configParam(MOD1_PARAM + i, 0.f, 1.f, 0.f, modeNames[i]);
 			configSwitch(VCO_LFO_MODE1_PARAM + i, 0.f, 1.f, 1.f, "Rate Mode", {"LFO", "VCO"});
 			configSwitch(VOCT_FM1_PARAM + i, 0.f, 1.f, 0.f, "FM Type", {"V/OCT", "FM"});
@@ -187,6 +220,9 @@ struct Sena : Module {
 
 		oversamplerOutput.setOversamplingIndex(oversamplingIndex);
 		oversamplerOutput.reset(sampleRate);
+
+		dcBlockFilter.setParameters(chowdsp::BiquadFilter::HIGHPASS, (80. / sampleRate), 0.707, 1.0f);
+		dcBlockFilter.reset();
 	}
 
 	// implementation taken from "Alias-Suppressed Oscillators Based on Differentiated Polynomial Waveforms",
@@ -307,10 +343,17 @@ struct Sena : Module {
 		if (outputs[BROWN_OUTPUT].isConnected()) {
 			// Brown noise: -6dB/oct
 			float white = 0.25 * random::normal();
-			float brown = 0.5 * pinkNoiseGenerator.process(white);
-			brown = 0.5 * (brown + lastBrown);
-			lastBrown = brown;
-			outputs[BROWN_OUTPUT].setVoltage(brown);
+			// apply a -3dB/oct filter to the white noise to get pink noise, and again to get -6dB/oct brown noise
+			float pink = pinkNoiseGenerator.process(white);
+			float brown = pinkNoiseGenerator2.process(pink);
+			// need to mitigate high energy at DC, so filter here
+			brown = dcBlockFilter.process(brown);
+			outputs[BROWN_OUTPUT].setVoltage(brown * 0.1f);
+
+		}
+
+		for (int i = 0; i < NUM_CHANNELS; ++i) {
+			freqParams[i]->mode = (Mode)params[VCO_LFO_MODE1_PARAM + i].getValue();
 		}
 	}
 
