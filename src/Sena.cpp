@@ -151,7 +151,6 @@ struct Sena : Module {
 	constexpr static float kLfoFreqKnobMin = 0.15f; // max frequency knob value
 	constexpr static float kLfoFreqKnobMax = 10.f; // min frequency knob value
 
-
 	// noise parts
 	PinkNoiseGenerator pinkNoiseGenerator;
 	float lastBrown = 0.f;
@@ -189,8 +188,10 @@ struct Sena : Module {
 
 	Sena() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
+		const float defaultFreq = rescale(std::log2(dsp::FREQ_C4), std::log2(kVcoFreqKnobMin), std::log2(kVcoFreqKnobMax), 0.f, 1.f);
+
 		for (int i = 0; i < NUM_CHANNELS; ++i) {
-			freqParams[i] = configParam<FreqParamQuantity>(FREQ1_PARAM + i, 0.f, 1.f, 0.5f, "Frequency", "Hz");
+			freqParams[i] = configParam<FreqParamQuantity>(FREQ1_PARAM + i, 0.f, 1.f, defaultFreq, "Frequency", "Hz");
 			configParam(MOD1_PARAM + i, 0.f, 1.f, 0.f, modeNames[i]);
 			configSwitch(VCO_LFO_MODE1_PARAM + i, 0.f, 1.f, 1.f, "Rate Mode", {"LFO", "VCO"});
 			configSwitch(VOCT_FM1_PARAM + i, 0.f, 1.f, 0.f, "FM Type", {"V/OCT", "FM"});
@@ -210,7 +211,6 @@ struct Sena : Module {
 
 	void onSampleRateChange() override {
 		float sampleRate = APP->engine->getSampleRate();
-
 
 		oversamplerFM.setOversamplingIndex(oversamplingIndex);
 		oversamplerFM.reset(sampleRate);
@@ -290,7 +290,11 @@ struct Sena : Module {
 			if (outputs[OUT1_OUTPUT + TRIANGLE].isConnected()) {
 				float triangle = 2.f * phase[1] - 1.f;
 				triangle = triangle < 0.f ? -triangle : triangle;
-				osBufferOutput[i][TRIANGLE] = 2 * triangle - 1.f;
+				triangle = 2 * triangle - 1.f;
+
+				float scale = 1 + params[MOD1_PARAM + TRIANGLE].getValue();
+
+				osBufferOutput[i][TRIANGLE] = clamp(scale * triangle, -1.f, +1.f);
 			}
 
 			// saw
