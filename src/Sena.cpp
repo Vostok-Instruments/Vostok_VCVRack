@@ -127,9 +127,13 @@ struct Sena : Module {
 		SAW,
 		SQUARE
 	};
-	enum Mode {
+	enum RangeMode {
 		LFO,
 		VCO,
+	};
+	enum TuneMode {
+		COARSE,
+		FINE,
 	};
 
 	// uses a 2*6=12th order Butterworth filter
@@ -144,12 +148,18 @@ struct Sena : Module {
 	const std::string channelNames[4] = { "Sine", "Triangle", "Saw", "Square" };
 
 	// VCO mode ranges
-	constexpr static float kVcoFreqKnobMin = 15.f; // max frequency knob value
-	constexpr static float kVcoFreqKnobMax = 1000.f; // min frequency knob value
+	constexpr static float kVcoFreqKnobMinCoarse = 15.f; // min frequency knob value
+	constexpr static float kVcoFreqKnobMaxCoarse = 1000.f; // max frequency knob value
+
+	constexpr static float kVcoFreqKnobMinFine = 15.f; // min frequency knob value
+	constexpr static float kVcoFreqKnobMaxFine = 15.f * (1 + 2.f/12.f) ; // max frequency knob value (+2 semitones)
 
 	// LFO mode ranges
-	constexpr static float kLfoFreqKnobMin = 0.15f; // max frequency knob value
-	constexpr static float kLfoFreqKnobMax = 10.f; // min frequency knob value
+	constexpr static float kLfoFreqKnobMinCoarse = 0.15f; // max frequency knob value
+	constexpr static float kLfoFreqKnobMaxCoarse = 10.f; // min frequency knob value
+
+	constexpr static float kLfoFreqKnobMinFine = 0.15f; // max frequency knob value
+	constexpr static float kLfoFreqKnobMaxFine = 0.17f; // min frequency knob value
 
 	// noise parts
 	PinkNoiseGenerator pinkNoiseGenerator;
@@ -158,29 +168,37 @@ struct Sena : Module {
 	PinkNoiseGenerator pinkNoiseGenerator2;
 	chowdsp::BiquadFilter dcBlockFilter;
 
+	static constexpr std::pair<float, float> getMinMaxRange(RangeMode mode, TuneMode tuneMode) {
+		if (mode == VCO) {
+			if (tuneMode == COARSE) {
+				return { kVcoFreqKnobMinCoarse, kVcoFreqKnobMaxCoarse };
+			} else {
+				return { kVcoFreqKnobMinFine, kVcoFreqKnobMaxFine };
+			}
+		} else {
+			if (tuneMode == COARSE) {
+				return { kLfoFreqKnobMinCoarse, kLfoFreqKnobMaxCoarse };
+			} else {
+				return { kLfoFreqKnobMinFine, kLfoFreqKnobMaxFine };
+			}
+		}
+	}
+
 	struct FreqParamQuantity : public ParamQuantity {
-		Mode mode = VCO; // default mode is VCO
+		RangeMode rangeMode = VCO; // default mode is VCO
+		TuneMode tuneMode = COARSE; // default tuning mode is coarse
 
 		float getDisplayValue() override {
 
-			float frequenciesScaled;
-			if (mode == VCO) {
-				frequenciesScaled = rescale(getValue(), 0.f, 1.f, std::log2(kVcoFreqKnobMin), std::log2(kVcoFreqKnobMax));
-			}
-			else {
-				frequenciesScaled = rescale(getValue(), 0.f, 1.f, std::log2(kLfoFreqKnobMin), std::log2(kLfoFreqKnobMax));
-			}
+			auto [minFreq, maxFreq] = getMinMaxRange(rangeMode, tuneMode);
+			float frequenciesScaled = rescale(getValue(), 0.f, 1.f, std::log2(minFreq), std::log2(maxFreq));
 			return std::pow(2.f, frequenciesScaled);
 		}
 
 		void setDisplayValue(float displayValue) override {
 			float frequenciesScaled = std::log2(displayValue);
-			if (mode == VCO) {
-				setValue(rescale(frequenciesScaled, std::log2(kVcoFreqKnobMin), std::log2(kVcoFreqKnobMax), 0.f, 1.f));
-			}
-			else {
-				setValue(rescale(frequenciesScaled, std::log2(kLfoFreqKnobMin), std::log2(kLfoFreqKnobMax), 0.f, 1.f));
-			}			
+			auto [minFreq, maxFreq] = getMinMaxRange(rangeMode, tuneMode);
+			setValue(rescale(frequenciesScaled, std::log2(minFreq), std::log2(maxFreq), 0.f, 1.f));
 		}
 	};
 
@@ -188,7 +206,7 @@ struct Sena : Module {
 
 	Sena() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		const float defaultFreq = rescale(std::log2(dsp::FREQ_C4), std::log2(kVcoFreqKnobMin), std::log2(kVcoFreqKnobMax), 0.f, 1.f);
+		const float defaultFreq = rescale(std::log2(dsp::FREQ_C4), std::log2(kVcoFreqKnobMinCoarse), std::log2(kVcoFreqKnobMaxCoarse), 0.f, 1.f);
 
 		for (int i = 0; i < NUM_CHANNELS; ++i) {
 			freqParams[i] = configParam<FreqParamQuantity>(FREQ1_PARAM + i, 0.f, 1.f, defaultFreq, "Frequency", "Hz");
@@ -248,16 +266,22 @@ struct Sena : Module {
 			params[VOCT_FM1_PARAM + SQUARE].getValue()
 		};
 		const float_4 fmTypeModes = float_4::load(fmTypeModes_);
-		const float lfoVcoModes[4] = {
-			params[VCO_LFO_MODE1_PARAM + SINE].getValue(),
-			params[VCO_LFO_MODE1_PARAM + TRIANGLE].getValue(),
-			params[VCO_LFO_MODE1_PARAM + SAW].getValue(),
-			params[VCO_LFO_MODE1_PARAM + SQUARE].getValue()
-		};
-		const float_4 frequenciesScaledVCO = simd::rescale(float_4::load(frequencies), 0.f, 1.f, std::log2(kVcoFreqKnobMin), std::log2(kVcoFreqKnobMax));
-		const float_4 frequenciesScaledLFO = simd::rescale(float_4::load(frequencies), 0.f, 1.f, std::log2(kLfoFreqKnobMin), std::log2(kLfoFreqKnobMax));
-		// select frequency scaling based on the mode
-		const float_4 freqScaled = simd::ifelse(float_4::load(lfoVcoModes) > 0.5, frequenciesScaledVCO, frequenciesScaledLFO);
+		float frequencyMins_[4], frequencyMaxes_[4];
+		for (int i = 0; i < NUM_CHANNELS; ++i) {
+			RangeMode rangeMode = static_cast<RangeMode>(params[VCO_LFO_MODE1_PARAM + i].getValue());
+			TuneMode tuneMode = static_cast<TuneMode>(params[FINE1_PARAM + i].getValue());
+
+			freqParams[i]->rangeMode = rangeMode;
+			freqParams[i]->tuneMode = tuneMode;
+
+			auto [minFreq, maxFreq] = getMinMaxRange(rangeMode, tuneMode);
+			frequencyMins_[i] = minFreq;
+			frequencyMaxes_[i] = maxFreq;
+		}
+		const float_4 frequencyMins = simd::log2(float_4::load(frequencyMins_));
+		const float_4 frequencyMaxes = simd::log2(float_4::load(frequencyMaxes_));
+		const float_4 freqScaled = simd::rescale(float_4::load(frequencies), 0.f, 1.f, frequencyMins, frequencyMaxes);
+
 
 		upsampleInputs();
 		osBufferOutput = oversamplerOutput.getOSBuffer();
@@ -299,13 +323,18 @@ struct Sena : Module {
 
 			// saw
 			if (outputs[OUT1_OUTPUT + SAW].isConnected()) {
-				float saw = 2.f * phase[2] - 1.f;
-				osBufferOutput[i][SAW] = saw;
+				float offsetPhase = phase[2] + params[MOD1_PARAM + SAW].getValue(); // sawtooth phase offset
+				offsetPhase -= std::floor(offsetPhase); // ensure within [0, 1]
+				float saw1 = 2.f * phase[2] - 1.f;
+				float saw2 = 2.f * offsetPhase - 1.f;
+				//osBufferOutput[i][SAW] = 0.5 * (saw1 - 0.1*saw2);
+				osBufferOutput[i][SAW] = 0.5 * (saw1 + saw2);
 			}
 
 			// square
 			if (outputs[OUT1_OUTPUT + SQUARE].isConnected()) {
-				float square = phase[3] < 0.5f ? -1.f : 1.f;
+				const float pulseWidth = 0.5f - params[MOD1_PARAM + SQUARE].getValue() * 0.45f; // pulse width modulation
+				float square = phase[3] < pulseWidth ? -1.f : 1.f;
 				osBufferOutput[i][SQUARE] = square;
 			}
 		}
@@ -354,10 +383,6 @@ struct Sena : Module {
 			brown = dcBlockFilter.process(brown);
 			outputs[BROWN_OUTPUT].setVoltage(brown * 0.1f);
 
-		}
-
-		for (int i = 0; i < NUM_CHANNELS; ++i) {
-			freqParams[i]->mode = (Mode)params[VCO_LFO_MODE1_PARAM + i].getValue();
 		}
 	}
 
