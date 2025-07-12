@@ -6,33 +6,42 @@ using simd::float_4;
 using simd::Vector;
 
 
+
 // references:
 // * "REDUCING THE ALIASING OF NONLINEAR WAVESHAPING USING CONTINUOUS-TIME CONVOLUTION" (https://www.dafx.de/paper-archive/2016/dafxpapers/20-DAFx-16_paper_41-PN.pdf)
 // * "Antiderivative Antialiasing for Memoryless Nonlinearities" https://acris.aalto.fi/ws/portalfiles/portal/27135145/ELEC_bilbao_et_al_antiderivative_antialiasing_IEEESPL.pdf
 // * https://ccrma.stanford.edu/~jatin/Notebooks/adaa.html
-// * Pony waveshape  https://www.desmos.com/calculator/1kvahyl4ti
+// * Sena waveshape https://www.desmos.com/calculator/238408c86f
 
-template<typename T>
 class FoldStage1 {
 public:
 
-	T process(T x, T xt) {
-		T y = simd::ifelse(simd::abs(x - xPrev) < 1e-5,
-		                   f(0.5 * (xPrev + x), xt),
-		                   (F(x, xt) - F(xPrev, xt)) / (x - xPrev));
-
-		xPrev = x;
-		return y;
+	float process(float x, float t, bool adaa = true) {
+		if (adaa) {
+			float y = (std::fabs(x - xPrev) < 1e-5) ? f(0.5 * (xPrev + x), t) : (F(x, t) - F(xPrev, t)) / (x - xPrev);
+			xPrev = x;
+			return y;
+		}
+		else {
+			return f(x, t);
+		}
 	}
 
 	// xt - threshold x
-	static T f(T x, T xt) {
-		return simd::ifelse(x > xt, +5 * xt - 4 * x, simd::ifelse(x < -xt, -5 * xt - 4 * x, x));
+	static float f(float x, float t) {
+		return ((t < x) ? (-m * x + t * (m + 1)) : ((t < -x) ? (-m * x - t * (m + 1)) : (x)));
 	}
 
-	static T F(T x, T xt) {
-		return simd::ifelse(x > xt,  5 * xt * x - 2 * x * x - 2.5 * xt * xt,
-		                    simd::ifelse(x < -xt, -5 * xt * x - 2 * x * x - 2.5 * xt * xt, x * x / 2.f));
+	static float F(float x, float t) {
+		if (t < -x) {
+			return (0.5 * x * (-m * x - 2 * t * (m + 1)));
+		}
+		else if (t >= x) {
+			return (0.5 * (m + 1) * t * t + 0.5 * x * x);
+		}
+		else {
+			return 0.5 * x * (-m * x + 2 * t * (m + 1));
+		}
 	}
 
 	void reset() {
@@ -40,29 +49,45 @@ public:
 	}
 
 private:
-	T xPrev = 0.f;
+	float xPrev = 0.f;
+	const static int m = 9; 	// downward slope after hitting threshold t
 };
 
-template<typename T>
+
 class FoldStage2 {
 public:
-	T process(T x) {
-		const T y = simd::ifelse(simd::abs(x - xPrev) < 1e-5, f(0.5 * (xPrev + x)), (F(x) - F(xPrev)) / (x - xPrev));
-		xPrev = x;
-		return y;
+	float process(float x, bool adaa = true) {
+		if (adaa) {
+			const float y = (std::abs(x - xPrev) < 1e-5) ? f(0.5 * (xPrev + x)) : (F(x) - F(xPrev)) / (x - xPrev);
+			xPrev = x;
+			return y;
+		}
+		else {
+			return f(x);
+		}
 	}
 
-	static T f(T x) {
-		return simd::ifelse(-(x + 2) > c, c, simd::ifelse(x < -1, -(x + 2), simd::ifelse(x < 1, x, simd::ifelse(-x + 2 > -c, -x + 2, -c))));
+	static float f(float x) {
+		return (-d * (x + 1) - 1 > c) ? c : ((x < -1) ? -d * x - (d + 1) : ((x < 1) ? x : ((d + 1) - d * x > -c) ? d + 1 - d* x : -c));
 	}
 
-	static T F(T x) {
-		return simd::ifelse(x > 0, F_signed(x), F_signed(-x));
+	static float F(float x) {
+		return (x > 0) ? F_signed(x) : F_signed(-x);
 	}
 
-	static T F_signed(T x) {
-		return simd::ifelse(x < 1, x * x * 0.5, simd::ifelse(x < 2.f + c, 2.f * x * (1.f - x * 0.25f) - 1.f,
-		                    2.f * (2.f + c) * (1.f - (2.f + c) * 0.25f) - 1.f - c * (x - 2.f - c)));
+	static float F_signed(float x) {
+		const float x_switch = (d + 1 + c) / d;
+		if (x < 1) {
+			return x * x * 0.5f;
+		}
+		else if (x < x_switch) {
+			return -0.5f * d * x * x + (d + 1) * x - 0.5f * (d + 1);
+		}
+		else {
+			return -c * x + (1 + c * c + d + 2 * c * (1 + d)) / (2.f * d);
+		}
+		//return (x < 1, x * x * 0.5, simd::ifelse(x < 2.f + c, 2.f * x * (1.f - x * 0.25f) - 1.f,
+		//                    2.f * (2.f + c) * (1.f - (2.f + c) * 0.25f) - 1.f - c * (x - 2.f - c)));
 	}
 
 	void reset() {
@@ -70,8 +95,9 @@ public:
 	}
 
 private:
-	T xPrev = 0.f;
-	static constexpr float c = 0.1f;
+	float xPrev = 0.f;
+	static constexpr float c = 0.1f;  	// final value of the fold function (independent of x))
+	static constexpr float d = 1.5f; 	// slope of downward part before hitting constant c
 };
 
 
@@ -90,7 +116,14 @@ struct PinkNoiseGenerator {
 	}
 };
 
-
+// taken from VCV Fundamental VCO.cpp (gpl-3.0-or-later)
+float analogSine(float phase) {
+	// Quadratic approximation of sine, slightly richer harmonics
+	bool halfPhase = (phase < 0.5f);
+	float x = phase - (halfPhase ? 0.25f : 0.75f);
+	float v = 1.f - 16.f * x * x;
+	return v * (halfPhase ? 1.f : -1.f);
+}
 
 struct Sena : Module {
 
@@ -141,6 +174,7 @@ struct Sena : Module {
 	chowdsp::VariableOversampling<6, float_4> oversamplerMode;
 	chowdsp::VariableOversampling<6, float_4> oversamplerOutput;
 	int oversamplingIndex = 1; 	// default is 2^oversamplingIndex == x2 oversampling
+	bool useAdaa = true; // default is to use antiderivative antialiasing
 	dsp::ClockDivider lightDivider;
 	const int lightUpdateRate = 16;
 
@@ -152,7 +186,7 @@ struct Sena : Module {
 	constexpr static float kVcoFreqKnobMaxCoarse = 1000.f; // max frequency knob value
 
 	constexpr static float kVcoFreqKnobMinFine = 15.f; // min frequency knob value
-	constexpr static float kVcoFreqKnobMaxFine = 15.f * (1 + 2.f/12.f) ; // max frequency knob value (+2 semitones)
+	constexpr static float kVcoFreqKnobMaxFine = 15.f * (1 + 2.f / 12.f) ; // max frequency knob value (+2 semitones)
 
 	// LFO mode ranges
 	constexpr static float kLfoFreqKnobMinCoarse = 0.15f; // max frequency knob value
@@ -161,24 +195,31 @@ struct Sena : Module {
 	constexpr static float kLfoFreqKnobMinFine = 0.15f; // max frequency knob value
 	constexpr static float kLfoFreqKnobMaxFine = 0.17f; // min frequency knob value
 
+	FoldStage1 stage1;
+	FoldStage2 stage2;
+
 	// noise parts
 	PinkNoiseGenerator pinkNoiseGenerator;
 	float lastBrown = 0.f;
 	float lastPink = 0.f;
 	PinkNoiseGenerator pinkNoiseGenerator2;
-	chowdsp::BiquadFilter dcBlockFilter;
+	chowdsp::BiquadFilter noiseDcBlockFilter;
+	chowdsp::TBiquadFilter<float_4> fmDcBlockFilter;
 
 	static constexpr std::pair<float, float> getMinMaxRange(RangeMode mode, TuneMode tuneMode) {
 		if (mode == VCO) {
 			if (tuneMode == COARSE) {
 				return { kVcoFreqKnobMinCoarse, kVcoFreqKnobMaxCoarse };
-			} else {
+			}
+			else {
 				return { kVcoFreqKnobMinFine, kVcoFreqKnobMaxFine };
 			}
-		} else {
+		}
+		else {
 			if (tuneMode == COARSE) {
 				return { kLfoFreqKnobMinCoarse, kLfoFreqKnobMaxCoarse };
-			} else {
+			}
+			else {
 				return { kLfoFreqKnobMinFine, kLfoFreqKnobMaxFine };
 			}
 		}
@@ -239,8 +280,19 @@ struct Sena : Module {
 		oversamplerOutput.setOversamplingIndex(oversamplingIndex);
 		oversamplerOutput.reset(sampleRate);
 
-		dcBlockFilter.setParameters(chowdsp::BiquadFilter::HIGHPASS, (80. / sampleRate), 0.707, 1.0f);
-		dcBlockFilter.reset();
+		noiseDcBlockFilter.setParameters(chowdsp::BiquadFilter::HIGHPASS, (80. / sampleRate), 0.707, 1.0f);
+		noiseDcBlockFilter.reset();
+
+		fmDcBlockFilter.setParameters(chowdsp::TBiquadFilter<float_4>::HIGHPASS, (22.05 / sampleRate), 0.707, 1.0f);
+		fmDcBlockFilter.reset();
+
+		// reset the oversampling buffer pointers
+		osBufferOutput = oversamplerOutput.getOSBuffer();
+		osBufferMod = oversamplerMode.getOSBuffer();
+		osBufferFM = oversamplerFM.getOSBuffer();
+
+		stage1.reset();
+		stage2.reset();
 	}
 
 	// implementation taken from "Alias-Suppressed Oscillators Based on Differentiated Polynomial Waveforms",
@@ -248,48 +300,22 @@ struct Sena : Module {
 	// https://github.com/surge-synthesizer/surge/blob/09f1ec8e103265bef6fc0d8a0fc188238197bf8c/src/common/dsp/oscillators/ModernOscillator.cpp#L19
 
 	float_4 phase = {}; 	// phase at current (sub)sample
-	float_4* osBufferFM, * osBufferMode, * osBufferOutput;
+	float_4* osBufferFM, * osBufferMod, * osBufferOutput;
+
+	float_4 frequencyPotsPitch = {}, isLinearFm = {}, frequencyMins = {}, frequencyMaxes = {};
+
 	void process(const ProcessArgs& args) override {
 
 		const int oversamplingRatio = oversamplerFM.getOversamplingRatio();
 
-		const float frequencies[4] = {
-			params[FREQ1_PARAM + SINE].getValue(),
-			params[FREQ1_PARAM + TRIANGLE].getValue(),
-			params[FREQ1_PARAM + SAW].getValue(),
-			params[FREQ1_PARAM + SQUARE].getValue()
-		};
-		const float fmTypeModes_[4] = {
-			params[VOCT_FM1_PARAM + SINE].getValue(),
-			params[VOCT_FM1_PARAM + TRIANGLE].getValue(),
-			params[VOCT_FM1_PARAM + SAW].getValue(),
-			params[VOCT_FM1_PARAM + SQUARE].getValue()
-		};
-		const float_4 fmTypeModes = float_4::load(fmTypeModes_);
-		float frequencyMins_[4], frequencyMaxes_[4];
-		for (int i = 0; i < NUM_CHANNELS; ++i) {
-			RangeMode rangeMode = static_cast<RangeMode>(params[VCO_LFO_MODE1_PARAM + i].getValue());
-			TuneMode tuneMode = static_cast<TuneMode>(params[FINE1_PARAM + i].getValue());
-
-			freqParams[i]->rangeMode = rangeMode;
-			freqParams[i]->tuneMode = tuneMode;
-
-			auto [minFreq, maxFreq] = getMinMaxRange(rangeMode, tuneMode);
-			frequencyMins_[i] = minFreq;
-			frequencyMaxes_[i] = maxFreq;
-		}
-		const float_4 frequencyMins = simd::log2(float_4::load(frequencyMins_));
-		const float_4 frequencyMaxes = simd::log2(float_4::load(frequencyMaxes_));
-		const float_4 freqScaled = simd::rescale(float_4::load(frequencies), 0.f, 1.f, frequencyMins, frequencyMaxes);
-
-
+		setupSimdBuffers();
 		upsampleInputs();
-		osBufferOutput = oversamplerOutput.getOSBuffer();
+
 		for (int i = 0; i < oversamplingRatio; ++i) {
 
 			const float_4 fmVoltage = osBufferFM[i];
-			const float_4 pitch = simd::ifelse(fmTypeModes < 0.5, fmVoltage, float_4::zero()) + freqScaled;
-			const float_4 freq = simd::pow(2.f, pitch) + dsp::FREQ_C4 * simd::ifelse(fmTypeModes > 0.5, fmVoltage, float_4::zero());
+			const float_4 pitch = simd::ifelse(isLinearFm, float_4::zero(), fmVoltage) + frequencyPotsPitch;
+			const float_4 freq = simd::pow(2.f, pitch) + 120 * simd::ifelse(isLinearFm, fmVoltage, float_4::zero());
 
 			const float_4 deltaBasePhase = simd::clamp(freq * args.sampleTime / oversamplingRatio, 1e-7, 0.5f);
 			// floating point arithmetic doesn't work well at low frequencies, specifically because the finite difference denominator
@@ -307,7 +333,9 @@ struct Sena : Module {
 			// TODO: proper antiderivative antialiasing
 			// sine
 			if (outputs[OUT1_OUTPUT + SINE].isConnected()) {
-				osBufferOutput[i][SINE] = -std::sin(2.0 * M_PI * phase[0]);
+				float foldAmount = 1.f - 0.5f * osBufferMod[i][SINE]; // fold amount for sine wave
+				float sine = analogSine(phase[0]);
+				osBufferOutput[i][SINE] = stage2.process(stage1.process(sine, foldAmount, useAdaa), useAdaa);
 			}
 
 			// triangle
@@ -316,24 +344,23 @@ struct Sena : Module {
 				triangle = triangle < 0.f ? -triangle : triangle;
 				triangle = 2 * triangle - 1.f;
 
-				float scale = 1 + params[MOD1_PARAM + TRIANGLE].getValue();
+				float scale = 1 + 1.5 * osBufferMod[i][TRIANGLE];
 
 				osBufferOutput[i][TRIANGLE] = clamp(scale * triangle, -1.f, +1.f);
 			}
 
 			// saw
 			if (outputs[OUT1_OUTPUT + SAW].isConnected()) {
-				float offsetPhase = phase[2] + params[MOD1_PARAM + SAW].getValue(); // sawtooth phase offset
+				float offsetPhase = phase[2] - osBufferMod[i][SAW]; // sawtooth phase offset
 				offsetPhase -= std::floor(offsetPhase); // ensure within [0, 1]
 				float saw1 = 2.f * phase[2] - 1.f;
 				float saw2 = 2.f * offsetPhase - 1.f;
-				//osBufferOutput[i][SAW] = 0.5 * (saw1 - 0.1*saw2);
-				osBufferOutput[i][SAW] = 0.5 * (saw1 + saw2);
+				osBufferOutput[i][SAW] = (saw1 - 0.1 * saw2);
 			}
 
 			// square
 			if (outputs[OUT1_OUTPUT + SQUARE].isConnected()) {
-				const float pulseWidth = 0.5f - params[MOD1_PARAM + SQUARE].getValue() * 0.45f; // pulse width modulation
+				const float pulseWidth = 0.5f - osBufferMod[i][SQUARE] * 0.45f; // pulse width modulation
 				float square = phase[3] < pulseWidth ? -1.f : 1.f;
 				osBufferOutput[i][SQUARE] = square;
 			}
@@ -380,58 +407,104 @@ struct Sena : Module {
 			float pink = pinkNoiseGenerator.process(white);
 			float brown = pinkNoiseGenerator2.process(pink);
 			// need to mitigate high energy at DC, so filter here
-			brown = dcBlockFilter.process(brown);
+			brown = noiseDcBlockFilter.process(brown);
 			outputs[BROWN_OUTPUT].setVoltage(brown * 0.1f);
 
 		}
 	}
 
+	void setupSimdBuffers() {
+
+		// work out which channels use linear FM
+		isLinearFm = float_4(
+		               params[VOCT_FM1_PARAM + SINE].getValue(),
+		               params[VOCT_FM1_PARAM + TRIANGLE].getValue(),
+		               params[VOCT_FM1_PARAM + SAW].getValue(),
+		               params[VOCT_FM1_PARAM + SQUARE].getValue()
+		             ) > 0.5f;
+
+		// setup the frequency ranges for each channel
+		for (int i = 0; i < NUM_CHANNELS; ++i) {
+			RangeMode rangeMode = static_cast<RangeMode>(params[VCO_LFO_MODE1_PARAM + i].getValue());
+			TuneMode tuneMode = static_cast<TuneMode>(params[FINE1_PARAM + i].getValue());
+
+			// also update UI label details whilst we're here
+			freqParams[i]->rangeMode = rangeMode;
+			freqParams[i]->tuneMode = tuneMode;
+
+			auto [minFreq, maxFreq] = getMinMaxRange(rangeMode, tuneMode);
+			frequencyMins[i] = minFreq;
+			frequencyMaxes[i] = maxFreq;
+		}
+
+		const float_4 frequencyPots = float_4(
+		                                params[FREQ1_PARAM + SINE].getValue(),
+		                                params[FREQ1_PARAM + TRIANGLE].getValue(),
+		                                params[FREQ1_PARAM + SAW].getValue(),
+		                                params[FREQ1_PARAM + SQUARE].getValue()
+		                              );
+
+		frequencyPotsPitch = simd::rescale(frequencyPots, 0.f, 1.f, simd::log2(frequencyMins), simd::log2(frequencyMaxes));
+	}
+
 	void upsampleInputs() {
 		const int oversamplingRatio = oversamplerFM.getOversamplingRatio();
 
-		// upsample FM inputs (if any are connected)
-		osBufferFM = oversamplerFM.getOSBuffer();
+		// upsample FM inputs (if any are connected), performance is the same whether it's 1 channel or 4 because of simd
 		if (inputs[VOCT1_INPUT + SINE].isConnected() ||
 		    inputs[VOCT1_INPUT + TRIANGLE].isConnected() ||
 		    inputs[VOCT1_INPUT + SAW].isConnected() ||
 		    inputs[VOCT1_INPUT + SQUARE].isConnected()) {
 
-			const float voctInputs[4] = {
-				inputs[VOCT1_INPUT + SINE].getVoltage(),
-				inputs[VOCT1_INPUT + TRIANGLE].getVoltage(),
-				inputs[VOCT1_INPUT + SAW].getVoltage(),
-				inputs[VOCT1_INPUT + SQUARE].getVoltage()
-			};
-			oversamplerFM.upsample(float_4::load(voctInputs));
+			float_4 fmInputs = float_4(
+			                     inputs[VOCT1_INPUT + SINE].getVoltage(),
+			                     inputs[VOCT1_INPUT + TRIANGLE].getVoltage(),
+			                     inputs[VOCT1_INPUT + SAW].getVoltage(),
+			                     inputs[VOCT1_INPUT + SQUARE].getVoltage()
+			                   );
+
+			fmInputs = simd::ifelse(isLinearFm, fmDcBlockFilter.process(fmInputs), fmInputs);
+			oversamplerFM.upsample(fmInputs);
 		}
 		else {
 			std::fill(osBufferFM, &osBufferFM[oversamplingRatio], float_4::zero());
 		}
 
+
+		// get pot values for the mode inputs
+		float_4 modPots = float_4(
+		                    params[MOD1_PARAM + SINE].getValue(),
+		                    params[MOD1_PARAM + TRIANGLE].getValue(),
+		                    params[MOD1_PARAM + SAW].getValue(),
+		                    params[MOD1_PARAM + SQUARE].getValue()
+		                  );
+
 		// upsample mode inputs (if any are connected)
-		osBufferMode = oversamplerMode.getOSBuffer();
 		if (inputs[MOD1_INPUT + SINE].isConnected() ||
 		    inputs[MOD1_INPUT + TRIANGLE].isConnected() ||
 		    inputs[MOD1_INPUT + SAW].isConnected() ||
 		    inputs[MOD1_INPUT + SQUARE].isConnected()) {
 
-			const float modeInputs[4] = {
-				inputs[MOD1_INPUT + SINE].getVoltage(),
-				inputs[MOD1_INPUT + TRIANGLE].getVoltage(),
-				inputs[MOD1_INPUT + SAW].getVoltage(),
-				inputs[MOD1_INPUT + SQUARE].getVoltage()
-			};
+			float_4 modInputs = float_4(
+			                      inputs[MOD1_INPUT + SINE].getVoltage(),
+			                      inputs[MOD1_INPUT + TRIANGLE].getVoltage(),
+			                      inputs[MOD1_INPUT + SAW].getVoltage(),
+			                      inputs[MOD1_INPUT + SQUARE].getVoltage()
+			                    );
 
-			oversamplerMode.upsample(float_4::load(modeInputs));
+			// combination of pot and CV controls the mods in range [0, 1]
+			modInputs = simd::clamp(simd::clamp(modInputs / 10.f, -1.f, 1.f) + modPots, 0.f, 1.f);
+			oversamplerMode.upsample(modInputs);
 		}
 		else {
-			std::fill(osBufferMode, &osBufferMode[oversamplingRatio], float_4::zero());
+			std::fill(osBufferMod, &osBufferMod[oversamplingRatio], modPots);
 		}
 	}
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "oversamplingIndex", json_integer(oversamplingIndex));
+		json_object_set_new(rootJ, "useAdaa", json_boolean(useAdaa));
 		return rootJ;
 	}
 
@@ -440,6 +513,11 @@ struct Sena : Module {
 		if (jOversamplingIndex) {
 			oversamplingIndex = json_integer_value(jOversamplingIndex);
 			onSampleRateChange();
+		}
+
+		json_t* jUseAdaa = json_object_get(rootJ, "useAdaa");
+		if (jUseAdaa) {
+			useAdaa = json_boolean_value(jUseAdaa);
 		}
 	}
 };
@@ -499,8 +577,9 @@ struct SenaWidget : ModuleWidget {
 		[ = ](int mode) {
 			module->oversamplingIndex = mode;
 			module->onSampleRateChange();
-		}
-		                                     ));
+		}));
+
+		menu->addChild(createBoolPtrMenuItem("Use Antiderivative Anti-aliasing", "", &module->useAdaa));
 	}
 };
 
