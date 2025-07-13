@@ -101,6 +101,44 @@ private:
 };
 
 
+
+
+class HardClip {
+
+public:
+	float process(float x, bool adaa = true) {
+		if (adaa) {
+			const float y = (std::abs(x - xPrev) < 1e-5) ? f(0.5f * (xPrev + x)) : (F(x) - F(xPrev)) / (x - xPrev);
+			xPrev = x;
+			return y;
+		}
+		else {
+			return f(x);
+		}
+	}
+
+	static int sgn(float val) {
+		return (0.f < val) - (val < 0.f);
+	}
+
+	// hard clip function
+	static float f(float x) {
+		return std::abs(x) > 1.f ? sgn(x) : x;
+	}
+
+	// integral of the hard clip function
+	static float F(float x) {
+		return (std::abs(x) > 1.f) ? x * sgn(x) - 0.5f : x * x * 0.5f;
+	}
+
+	void reset() {
+		xPrev = 0.f;
+	}
+private:
+	float xPrev = 0.f; 	// previous input value
+};
+
+
 /** Based on pke Paul Kellet's economy method.
 http://www.firstpr.com.au/dsp/pink-noise/
 */
@@ -177,6 +215,7 @@ struct Sena : Module {
 	bool useAdaa = true; // default is to use antiderivative antialiasing
 	dsp::ClockDivider lightDivider;
 	const int lightUpdateRate = 16;
+	bool removePulseDC = false;
 
 	const std::string modeNames[4] = { "Fold", "Shape", "Phase", "PWM" };
 	const std::string channelNames[4] = { "Sine", "Triangle", "Saw", "Square" };
@@ -197,6 +236,7 @@ struct Sena : Module {
 
 	FoldStage1 stage1;
 	FoldStage2 stage2;
+	HardClip hardClip;
 
 	// noise parts
 	PinkNoiseGenerator pinkNoiseGenerator;
@@ -304,11 +344,48 @@ struct Sena : Module {
 
 	float_4 frequencyPotsPitch = {}, isLinearFm = {}, frequencyMins = {}, frequencyMaxes = {};
 
+	float aliasSuppressedTri(float_4* phases, Waveform waveform) {
+		float triBuffer[3];
+		for (int i = 0; i < 3; ++i) {
+			float p = 2 * phases[i][waveform] - 1.0; 				// range -1.0 to +1.0
+			float s = 0.5 - std::abs(p); 				// eq 30
+			triBuffer[i] = (s * s * s - 0.75 * s) / 3.0; 	// eq 29
+		}
+		return (triBuffer[0] - 2.0 * triBuffer[1] + triBuffer[2]);
+	}
+
+	float aliasSuppressedSaw(float_4* phases, Waveform waveform) {
+		float sawBuffer[3];
+		for (int i = 0; i < 3; ++i) {
+			float p = 2 * phases[i][waveform] - 1.0; 		// range -1 to +1
+			sawBuffer[i] = (p * p * p - p) / 6.0;	// eq 11
+		}
+
+		return (sawBuffer[0] - 2.0 * sawBuffer[1] + sawBuffer[2]);
+	}
+
+	float aliasSuppressedOffsetSaw(float_4* phases, float pw, Waveform waveform) {
+		float sawOffsetBuff[3];
+
+		for (int i = 0; i < 3; ++i) {
+			float p = 2 * phases[i][waveform] - 1.0; 		// range -1 to +1
+			float pwp = p + 2 * pw;					// phase after pw (pw in [0, 1])
+			pwp += (pwp > 1) ? -2 : 0;     			// modulo on [-1, +1]
+			sawOffsetBuff[i] = (pwp * pwp * pwp - pwp) / 6.0;	// eq 11
+		}
+		return (sawOffsetBuff[0] - 2.0 * sawOffsetBuff[1] + sawOffsetBuff[2]);
+	}
+
 	void process(const ProcessArgs& args) override {
 
 		const int oversamplingRatio = oversamplerFM.getOversamplingRatio();
+		const bool doUpdate = lightDivider.process();
 
-		setupSimdBuffers();
+		if (doUpdate) {
+			// update modulation and frequency pots (infrequently)
+			setupSimdBuffers();
+		}
+		// upsample incoming CV inputs
 		upsampleInputs();
 
 		for (int i = 0; i < oversamplingRatio; ++i) {
@@ -330,7 +407,12 @@ struct Sena : Module {
 			// ensure within [0, 1]
 			phase -= simd::floor(phase);
 
-			// TODO: proper antiderivative antialiasing
+			// phase as extrapolated to the current and two previous samples
+			float_4 phases[3];
+			phases[0] = phase - 2 * deltaBasePhase + simd::ifelse(phase < 2 * deltaBasePhase, 1.f, 0.f);
+			phases[1] = phase - deltaBasePhase + simd::ifelse(phase < deltaBasePhase, 1.f, 0.f);
+			phases[2] = phase;
+
 			// sine
 			if (outputs[OUT1_OUTPUT + SINE].isConnected()) {
 				float foldAmount = 1.f - 0.5f * osBufferMod[i][SINE]; // fold amount for sine wave
@@ -340,29 +422,53 @@ struct Sena : Module {
 
 			// triangle
 			if (outputs[OUT1_OUTPUT + TRIANGLE].isConnected()) {
-				float triangle = 2.f * phase[1] - 1.f;
-				triangle = triangle < 0.f ? -triangle : triangle;
-				triangle = 2 * triangle - 1.f;
 
-				float scale = 1 + 1.5 * osBufferMod[i][TRIANGLE];
+				if (lowFreqRegime[TRIANGLE] || !useAdaa) {
+					osBufferOutput[i][TRIANGLE] = 1.0 - 2.0 * std::abs(2 * phase[TRIANGLE] - 1.0);
+				}
+				else {
+					osBufferOutput[i][TRIANGLE] = aliasSuppressedTri(phases, TRIANGLE) * denominatorInv[TRIANGLE];
+				}
 
-				osBufferOutput[i][TRIANGLE] = clamp(scale * triangle, -1.f, +1.f);
+				const float scale = 1 + 1.5 * osBufferMod[i][TRIANGLE];
+
+				osBufferOutput[i][TRIANGLE] = hardClip.process(scale * osBufferOutput[i][TRIANGLE], useAdaa);
 			}
 
 			// saw
 			if (outputs[OUT1_OUTPUT + SAW].isConnected()) {
-				float offsetPhase = phase[2] - osBufferMod[i][SAW]; // sawtooth phase offset
+				float offsetPhase = phase[SAW] - osBufferMod[i][SAW]; // sawtooth phase offset
 				offsetPhase -= std::floor(offsetPhase); // ensure within [0, 1]
-				float saw1 = 2.f * phase[2] - 1.f;
-				float saw2 = 2.f * offsetPhase - 1.f;
-				osBufferOutput[i][SAW] = (saw1 - 0.1 * saw2);
+
+				if (lowFreqRegime[SAW] || !useAdaa) {
+					float saw1 = 2.f * phase[SAW] - 1.f;
+					float saw2 = 2.f * offsetPhase - 1.f;
+					osBufferOutput[i][SAW] = (saw1 - 0.1 * saw2);
+				}
+				else {
+					float saw1 = aliasSuppressedSaw(phases, SAW);
+					float saw2 = aliasSuppressedOffsetSaw(phases, 1 - osBufferMod[i][SAW], SAW);
+					osBufferOutput[i][SAW] = (saw1 - 0.1 * saw2) * denominatorInv[SAW];
+				}
 			}
 
 			// square
 			if (outputs[OUT1_OUTPUT + SQUARE].isConnected()) {
 				const float pulseWidth = 0.5f - osBufferMod[i][SQUARE] * 0.45f; // pulse width modulation
-				float square = phase[3] < pulseWidth ? -1.f : 1.f;
-				osBufferOutput[i][SQUARE] = square;
+				const float pulseDCOffset = (!removePulseDC) * 2.f * (0.5f - pulseWidth);
+
+				if (lowFreqRegime[SQUARE] || !useAdaa) {
+					// simple square wave
+					float square = (phase[SQUARE] < pulseWidth) ? -1.f : 1.f;
+					osBufferOutput[i][SQUARE] = square;
+				}
+				else {
+					// alias-suppressed square wave (DPW order 3)
+					float saw = aliasSuppressedSaw(phases, SQUARE);
+					float sawOffset = aliasSuppressedOffsetSaw(phases, pulseWidth, SQUARE);
+					float dpwOrder3 = (sawOffset - saw) * denominatorInv[SQUARE] + pulseDCOffset;
+					osBufferOutput[i][SQUARE] = dpwOrder3;
+				}
 			}
 		}
 
@@ -379,6 +485,11 @@ struct Sena : Module {
 			outputs[OUT1_OUTPUT + SQUARE].setVoltage(out[SQUARE]);
 		}
 
+		// noise outputs
+		processNoise();
+	}
+
+	void processNoise() {
 		if (outputs[WHITE_OUTPUT].isConnected()) {
 			float white = 0.25 * random::normal();
 			outputs[WHITE_OUTPUT].setVoltage(white);
@@ -409,7 +520,6 @@ struct Sena : Module {
 			// need to mitigate high energy at DC, so filter here
 			brown = noiseDcBlockFilter.process(brown);
 			outputs[BROWN_OUTPUT].setVoltage(brown * 0.1f);
-
 		}
 	}
 
