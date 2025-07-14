@@ -3,6 +3,7 @@
 
 
 using namespace rack;
+using namespace simd;
 
 // Declare the Plugin, defined in plugin.cpp
 extern Plugin* pluginInstance;
@@ -220,17 +221,17 @@ struct CKSSNarrow : app::SvgSwitch {
 };
 
 // const float centres[4] = {0.0, 1.45, 2.9, 4.35};  	// measured values
-static constexpr float centres[4] = {0.5f, 0.5f + 4.0f / 3.0f, 0.5f + 2.f * 4.0f / 3.f, 4.5};  	// values adjusted for symmetry etc
-static float gainForChannel(int channel, float routeValue) {
-	float routeValueForChannel = (routeValue - centres[channel] / 5.f);
-	if (channel == 0) {
-		routeValueForChannel = std::max(0.f, routeValueForChannel);
-	}
-	else if (channel == 3) {
-		routeValueForChannel = std::min(0.f, routeValueForChannel);
-	}
-	routeValueForChannel = std::abs(routeValueForChannel);
+static const float_4 crossfaderCentres = simd::float_4(0.5f, 0.5f + 4.0f / 3.0f, 0.5f + 2.f * 4.0f / 3.f, 4.5);  	// values adjusted for symmetry etc
+static const float_4 gains = float_4(0.89f, 0.865f, 0.865f, 0.89f);
+static const float_4 crossfaderMins = float_4(0.0f, -10, -10, -10);
+static const float_4 crossfaderMaxs = float_4(+10, +10, +10, 0.0f);
 
-	float gain = (channel == 0 || channel == 3) ? 0.89f : 0.865f;
-	return gain * std::exp2f(-routeValueForChannel * routeValueForChannel * routeValueForChannel * 290.f);
+static float_4 gainsForChannels(float routeValue) {
+	float_4 routeValueForChannel = (routeValue - crossfaderCentres / 5.f);
+	// channels 0 and 3 are special cases
+	routeValueForChannel = simd::clamp(routeValueForChannel, crossfaderMins, crossfaderMaxs);
+	// abs because we have a cubic
+	routeValueForChannel = simd::abs(routeValueForChannel);
+
+	return gains * simd::pow(2.0f, -routeValueForChannel * routeValueForChannel * routeValueForChannel * 290.f);
 }

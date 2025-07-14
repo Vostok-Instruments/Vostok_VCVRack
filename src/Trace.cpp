@@ -51,25 +51,21 @@ struct Trace : Module {
 		const float scanCv = params[SCAN_CV_PARAM].getValue() * inputs[SCAN_INPUT].getVoltage() / 5.f * (params[PLUS_MINUS_PARAM].getValue() == 0.f ? 1.f : -1.f);
 		const float scanValue = clamp(params[SCAN_PARAM].getValue() + scanCv, 0.f, 1.f);
 
-		float inGain1 = gainForChannel(0, scanValue);
-		float inGain2 = gainForChannel(1, scanValue);
-		float inGain3 = gainForChannel(2, scanValue);
-		float inGain4 = gainForChannel(3, scanValue);
+		float_4 inGain = gainsForChannels(scanValue);
 
-		lights[NUM1_LIGHT].setBrightness(inGain1);
-		lights[NUM2_LIGHT].setBrightness(inGain2);
-		lights[NUM3_LIGHT].setBrightness(inGain3);
-		lights[NUM4_LIGHT].setBrightness(inGain4);
+		lights[NUM1_LIGHT].setBrightness(inGain[0]);
+		lights[NUM2_LIGHT].setBrightness(inGain[1]);
+		lights[NUM3_LIGHT].setBrightness(inGain[2]);
+		lights[NUM4_LIGHT].setBrightness(inGain[3]);
 
-
-		float out = inputs[IN1_INPUT].getVoltage() * inGain1 +
-		            inputs[IN2_INPUT].getVoltage() * inGain2 +
-		            inputs[IN3_INPUT].getVoltage() * inGain3 +
-		            inputs[IN4_INPUT].getVoltage() * inGain4;
+		// TODO: do we clip?
+		float out = inputs[IN1_INPUT].getVoltage() * inGain[0] +
+		            inputs[IN2_INPUT].getVoltage() * inGain[1] +
+		            inputs[IN3_INPUT].getVoltage() * inGain[2] +
+		            inputs[IN4_INPUT].getVoltage() * inGain[3];
 
 		outputs[OUT_OUTPUT].setVoltage(out);
 	}
-
 };
 
 

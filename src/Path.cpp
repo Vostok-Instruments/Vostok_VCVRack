@@ -49,22 +49,19 @@ struct Path : Module {
 		const float routeCv = params[ROUTE_CV_PARAM].getValue() * inputs[ROUTE_INPUT].getVoltage() / 5.f * (params[PLUS_MINUS_PARAM].getValue() == 0.f ? 1.f : -1.f);
 		const float routeValue = clamp(params[ROUTE_PARAM].getValue() + routeCv, 0.f, 1.f);
 
-		float outGain1 = gainForChannel(0, routeValue);
-		float outGain2 = gainForChannel(1, routeValue);
-		float outGain3 = gainForChannel(2, routeValue);
-		float outGain4 = gainForChannel(3, routeValue);
-
+		float_4 outGains = gainsForChannels(routeValue);
+		
 		float in = inputs[IN_INPUT].getNormalVoltage(10.f);
-		outputs[OUT1_OUTPUT].setVoltage(in * outGain1);
-		outputs[OUT2_OUTPUT].setVoltage(in * outGain2);
-		outputs[OUT3_OUTPUT].setVoltage(in * outGain3);
-		outputs[OUT4_OUTPUT].setVoltage(in * outGain4);
+		outputs[OUT1_OUTPUT].setVoltage(in * outGains[0]);
+		outputs[OUT2_OUTPUT].setVoltage(in * outGains[1]);
+		outputs[OUT3_OUTPUT].setVoltage(in * outGains[2]);
+		outputs[OUT4_OUTPUT].setVoltage(in * outGains[3]);
 
 		// LEDs
-		lights[NUM1_LIGHT].setBrightness(outGain1);
-		lights[NUM2_LIGHT].setBrightness(outGain2);
-		lights[NUM3_LIGHT].setBrightness(outGain3);
-		lights[NUM4_LIGHT].setBrightness(outGain4);
+		lights[NUM1_LIGHT].setBrightness(outGains[1]);
+		lights[NUM2_LIGHT].setBrightness(outGains[2]);
+		lights[NUM3_LIGHT].setBrightness(outGains[3]);
+		lights[NUM4_LIGHT].setBrightness(outGains[4]);
 	}
 };
 
