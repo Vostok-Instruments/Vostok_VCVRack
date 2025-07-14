@@ -215,7 +215,19 @@ struct Sena : Module {
 	bool useAdaa = true; // default is to use antiderivative antialiasing
 	dsp::ClockDivider lightDivider;
 	const int lightUpdateRate = 16;
-	bool removePulseDC = false;
+	bool removePulseDC = true;
+
+	FoldStage1 stage1;
+	FoldStage2 stage2;
+	HardClip hardClip;
+
+	// noise parts
+	PinkNoiseGenerator pinkNoiseGenerator;
+	float lastBrown = 0.f;
+	float lastPink = 0.f;
+	PinkNoiseGenerator pinkNoiseGenerator2;
+	chowdsp::BiquadFilter noiseDcBlockFilter;
+	chowdsp::TBiquadFilter<float_4> fmDcBlockFilter;
 
 	const std::string modeNames[4] = { "Fold", "Shape", "Phase", "PWM" };
 	const std::string channelNames[4] = { "Sine", "Triangle", "Saw", "Square" };
@@ -234,17 +246,6 @@ struct Sena : Module {
 	constexpr static float kLfoFreqKnobMinFine = 0.15f; // max frequency knob value
 	constexpr static float kLfoFreqKnobMaxFine = 0.17f; // min frequency knob value
 
-	FoldStage1 stage1;
-	FoldStage2 stage2;
-	HardClip hardClip;
-
-	// noise parts
-	PinkNoiseGenerator pinkNoiseGenerator;
-	float lastBrown = 0.f;
-	float lastPink = 0.f;
-	PinkNoiseGenerator pinkNoiseGenerator2;
-	chowdsp::BiquadFilter noiseDcBlockFilter;
-	chowdsp::TBiquadFilter<float_4> fmDcBlockFilter;
 
 	static constexpr std::pair<float, float> getMinMaxRange(RangeMode mode, TuneMode tuneMode) {
 		if (mode == VCO) {
@@ -333,6 +334,7 @@ struct Sena : Module {
 
 		stage1.reset();
 		stage2.reset();
+		hardClip.reset();
 	}
 
 	// implementation taken from "Alias-Suppressed Oscillators Based on Differentiated Polynomial Waveforms",
@@ -383,18 +385,14 @@ struct Sena : Module {
 
 		if (doUpdate) {
 			// update modulation and frequency pots (infrequently)
-			setupSimdBuffers();
+			setupSlowSimdBuffers();
 		}
 		// upsample incoming CV inputs
-		upsampleInputs();
+		upsampleCVInputs();
 
 		for (int i = 0; i < oversamplingRatio; ++i) {
 
-			const float_4 fmVoltage = osBufferFM[i];
-			const float_4 pitch = simd::ifelse(isLinearFm, float_4::zero(), fmVoltage) + frequencyPotsPitch;
-			const float_4 freq = simd::pow(2.f, pitch) + 120 * simd::ifelse(isLinearFm, fmVoltage, float_4::zero());
-
-			const float_4 deltaBasePhase = simd::clamp(freq * args.sampleTime / oversamplingRatio, 1e-7, 0.5f);
+			const float_4 deltaBasePhase = simd::clamp(osBufferFM[i] * args.sampleTime / oversamplingRatio, 1e-7, 0.5f);
 			// floating point arithmetic doesn't work well at low frequencies, specifically because the finite difference denominator
 			// becomes tiny - we check for that scenario and use naive / 1st order waveforms in that frequency regime (as aliasing isn't
 			// a problem there). With no oversampling, at 44100Hz, the threshold frequency is 44.1Hz.
@@ -459,7 +457,7 @@ struct Sena : Module {
 
 				if (lowFreqRegime[SQUARE] || !useAdaa) {
 					// simple square wave
-					float square = (phase[SQUARE] < pulseWidth) ? -1.f : 1.f;
+					float square = (phase[SQUARE] < 1 - pulseWidth) ? +1.f : -1.f;
 					osBufferOutput[i][SQUARE] = square;
 				}
 				else {
@@ -472,17 +470,22 @@ struct Sena : Module {
 			}
 		}
 
-		if (outputs[OUT1_OUTPUT + SINE].isConnected() ||
-		    outputs[OUT1_OUTPUT + TRIANGLE].isConnected() ||
-		    outputs[OUT1_OUTPUT + SAW].isConnected() ||
-		    outputs[OUT1_OUTPUT + SQUARE].isConnected()) {
-
+		// outputs and lights
+		{
 			float_4 out = 5.f * ((oversamplingRatio > 1) ? oversamplerOutput.downsample() : osBufferOutput[0]);
 
 			outputs[OUT1_OUTPUT + SINE].setVoltage(out[SINE]);
 			outputs[OUT1_OUTPUT + TRIANGLE].setVoltage(out[TRIANGLE]);
 			outputs[OUT1_OUTPUT + SAW].setVoltage(out[SAW]);
 			outputs[OUT1_OUTPUT + SQUARE].setVoltage(out[SQUARE]);
+
+			if (doUpdate) {
+				const float sampleTimeLights = args.sampleTime * lightUpdateRate;
+				// update lights
+				for (int i = 0; i < NUM_CHANNELS; ++i) {
+					lights[NUM1_LIGHT + i].setBrightnessSmooth(std::max(out[i] / 5.f, 0.f), sampleTimeLights);
+				}
+			}
 		}
 
 		// noise outputs
@@ -523,7 +526,7 @@ struct Sena : Module {
 		}
 	}
 
-	void setupSimdBuffers() {
+	void setupSlowSimdBuffers() {
 
 		// work out which channels use linear FM
 		isLinearFm = float_4(
@@ -557,7 +560,7 @@ struct Sena : Module {
 		frequencyPotsPitch = simd::rescale(frequencyPots, 0.f, 1.f, simd::log2(frequencyMins), simd::log2(frequencyMaxes));
 	}
 
-	void upsampleInputs() {
+	void upsampleCVInputs() {
 		const int oversamplingRatio = oversamplerFM.getOversamplingRatio();
 
 		// upsample FM inputs (if any are connected), performance is the same whether it's 1 channel or 4 because of simd
@@ -566,18 +569,27 @@ struct Sena : Module {
 		    inputs[VOCT1_INPUT + SAW].isConnected() ||
 		    inputs[VOCT1_INPUT + SQUARE].isConnected()) {
 
-			float_4 fmInputs = float_4(
-			                     inputs[VOCT1_INPUT + SINE].getVoltage(),
-			                     inputs[VOCT1_INPUT + TRIANGLE].getVoltage(),
-			                     inputs[VOCT1_INPUT + SAW].getVoltage(),
-			                     inputs[VOCT1_INPUT + SQUARE].getVoltage()
-			                   );
+			float_4 fmInputs;
 
+			float normalVoltage = 0.f;
+			for (int i = 0; i < NUM_CHANNELS; ++i) {
+				fmInputs[i] = inputs[VOCT1_INPUT + i].getNormalVoltage(normalVoltage);
+				normalVoltage = fmInputs[i];
+			}
+
+			// in linear FM mode, we are AC coupled
 			fmInputs = simd::ifelse(isLinearFm, fmDcBlockFilter.process(fmInputs), fmInputs);
-			oversamplerFM.upsample(fmInputs);
+
+			// pitch is v/oct (if mode is selected) + frequency pot value			
+			const float_4 pitch = simd::ifelse(isLinearFm, float_4::zero(), fmInputs) + frequencyPotsPitch;
+			// convert to frequency in Hz
+			const float_4 freq = simd::pow(2.f, pitch) + 120 * simd::ifelse(isLinearFm, fmInputs, float_4::zero());
+
+			oversamplerFM.upsample(freq);
 		}
 		else {
-			std::fill(osBufferFM, &osBufferFM[oversamplingRatio], float_4::zero());
+			// if no CVs are connected, just use the frequency pots			
+			std::fill(osBufferFM, &osBufferFM[oversamplingRatio], simd::pow(2.f, frequencyPotsPitch));
 		}
 
 
@@ -609,12 +621,16 @@ struct Sena : Module {
 		else {
 			std::fill(osBufferMod, &osBufferMod[oversamplingRatio], modPots);
 		}
+				 
+		// zero outputs (in case they are used in main loop)
+		std::fill(osBufferOutput, &osBufferOutput[oversamplingRatio], float_4::zero());
 	}
 
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "oversamplingIndex", json_integer(oversamplingIndex));
 		json_object_set_new(rootJ, "useAdaa", json_boolean(useAdaa));
+		json_object_set_new(rootJ, "removePulseDC", json_boolean(removePulseDC));
 		return rootJ;
 	}
 
@@ -628,6 +644,11 @@ struct Sena : Module {
 		json_t* jUseAdaa = json_object_get(rootJ, "useAdaa");
 		if (jUseAdaa) {
 			useAdaa = json_boolean_value(jUseAdaa);
+		}
+
+		json_t* jRemovePulseDC = json_object_get(rootJ, "removePulseDC");
+		if (jRemovePulseDC) {
+			removePulseDC = json_boolean_value(jRemovePulseDC);
 		}
 	}
 };
@@ -679,17 +700,23 @@ struct SenaWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator());
 
-		menu->addChild(createIndexSubmenuItem("Oversampling",
-		{"Off", "x2", "x4", "x8"},
-		[ = ]() {
-			return module->oversamplingIndex;
-		},
-		[ = ](int mode) {
-			module->oversamplingIndex = mode;
-			module->onSampleRateChange();
+		menu->addChild(createSubmenuItem("Anti-aliasing", "",
+		[ = ](Menu * menu) {
+
+			menu->addChild(createIndexSubmenuItem("Oversampling",
+			{"Off", "x2", "x4", "x8"},
+			[ = ]() {
+				return module->oversamplingIndex;
+			},
+			[ = ](int mode) {
+				module->oversamplingIndex = mode;
+				module->onSampleRateChange();
+			}));
+
+			menu->addChild(createBoolPtrMenuItem("Use ADAA", "", &module->useAdaa));
 		}));
 
-		menu->addChild(createBoolPtrMenuItem("Use Antiderivative Anti-aliasing", "", &module->useAdaa));
+		menu->addChild(createBoolPtrMenuItem("Remove Pulse DC Offset", "", &module->removePulseDC));
 	}
 };
 
