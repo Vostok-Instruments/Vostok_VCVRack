@@ -214,7 +214,7 @@ struct Sena : Module {
 	int oversamplingIndex = 1; 	// default is 2^oversamplingIndex == x2 oversampling
 	bool useAdaa = true; // default is to use antiderivative antialiasing
 	dsp::ClockDivider lightDivider;
-	const int lightUpdateRate = 16;
+	const int lightUpdateRate = 128;
 	bool removePulseDC = true;
 
 	FoldStage1 stage1;
@@ -412,16 +412,17 @@ struct Sena : Module {
 			phases[2] = phase;
 
 			// sine
-			if (outputs[OUT1_OUTPUT + SINE].isConnected()) {
+			{
 				float foldAmount = 1.f - 0.5f * osBufferMod[i][SINE]; // fold amount for sine wave
 				float sine = analogSine(phase[0]);
-				osBufferOutput[i][SINE] = stage2.process(stage1.process(sine, foldAmount, useAdaa), useAdaa);
+				// only bother using antiderivative antialiasing for sine if the output is connected
+				bool useAdaaForSin = useAdaa && outputs[OUT1_OUTPUT + SINE].isConnected();
+				osBufferOutput[i][SINE] = stage2.process(stage1.process(sine, foldAmount, useAdaaForSin), useAdaaForSin);
 			}
 
 			// triangle
-			if (outputs[OUT1_OUTPUT + TRIANGLE].isConnected()) {
-
-				if (lowFreqRegime[TRIANGLE] || !useAdaa) {
+			{
+				if (lowFreqRegime[TRIANGLE] || !useAdaa || !outputs[OUT1_OUTPUT + TRIANGLE].isConnected()) {
 					osBufferOutput[i][TRIANGLE] = 1.0 - 2.0 * std::abs(2 * phase[TRIANGLE] - 1.0);
 				}
 				else {
@@ -434,11 +435,12 @@ struct Sena : Module {
 			}
 
 			// saw
-			if (outputs[OUT1_OUTPUT + SAW].isConnected()) {
+			{
 				float offsetPhase = phase[SAW] - osBufferMod[i][SAW]; // sawtooth phase offset
 				offsetPhase -= std::floor(offsetPhase); // ensure within [0, 1]
 
-				if (lowFreqRegime[SAW] || !useAdaa) {
+				// use cheap version for low frequencies, or when ADAA is disabled, or if only used for LEDs
+				if (lowFreqRegime[SAW] || !useAdaa || !outputs[OUT1_OUTPUT + SAW].isConnected()) {
 					float saw1 = 2.f * phase[SAW] - 1.f;
 					float saw2 = 2.f * offsetPhase - 1.f;
 					osBufferOutput[i][SAW] = (saw1 - 0.1 * saw2);
@@ -451,11 +453,12 @@ struct Sena : Module {
 			}
 
 			// square
-			if (outputs[OUT1_OUTPUT + SQUARE].isConnected()) {
+			{
 				const float pulseWidth = 0.5f - osBufferMod[i][SQUARE] * 0.45f; // pulse width modulation
 				const float pulseDCOffset = (!removePulseDC) * 2.f * (0.5f - pulseWidth);
 
-				if (lowFreqRegime[SQUARE] || !useAdaa) {
+				// use cheap version for low frequencies, or when ADAA is disabled, or if only used for LEDs
+				if (lowFreqRegime[SQUARE] || !useAdaa || !outputs[OUT1_OUTPUT + SQUARE].isConnected()) {
 					// simple square wave
 					float square = (phase[SQUARE] < 1 - pulseWidth) ? +1.f : -1.f;
 					osBufferOutput[i][SQUARE] = square;
@@ -580,7 +583,7 @@ struct Sena : Module {
 			// in linear FM mode, we are AC coupled
 			fmInputs = simd::ifelse(isLinearFm, fmDcBlockFilter.process(fmInputs), fmInputs);
 
-			// pitch is v/oct (if mode is selected) + frequency pot value			
+			// pitch is v/oct (if mode is selected) + frequency pot value
 			const float_4 pitch = simd::ifelse(isLinearFm, float_4::zero(), fmInputs) + frequencyPotsPitch;
 			// convert to frequency in Hz
 			const float_4 freq = simd::pow(2.f, pitch) + 120 * simd::ifelse(isLinearFm, fmInputs, float_4::zero());
@@ -588,7 +591,7 @@ struct Sena : Module {
 			oversamplerFM.upsample(freq);
 		}
 		else {
-			// if no CVs are connected, just use the frequency pots			
+			// if no CVs are connected, just use the frequency pots
 			std::fill(osBufferFM, &osBufferFM[oversamplingRatio], simd::pow(2.f, frequencyPotsPitch));
 		}
 
@@ -621,7 +624,7 @@ struct Sena : Module {
 		else {
 			std::fill(osBufferMod, &osBufferMod[oversamplingRatio], modPots);
 		}
-				 
+
 		// zero outputs (in case they are used in main loop)
 		std::fill(osBufferOutput, &osBufferOutput[oversamplingRatio], float_4::zero());
 	}

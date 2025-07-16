@@ -9,9 +9,9 @@
   "authorUrl": "",
   "pluginUrl": "https://www.vostokinstruments.com/",
   "manualUrl": "https://www.vostokinstruments.com/",
-  "sourceUrl": "",
+  "sourceUrl": "https://github.com/Vostok-Instruments/Vostok_VCVRack",
   "donateUrl": "",
-  "changelogUrl": "",
+  "changelogUrl": "https://github.com/Vostok-Instruments/Vostok_VCVRack/CHANGELOG.md",
   "modules": [
     {
       "slug": "Path",
@@ -52,8 +52,13 @@
     {
       "slug": "Atlas",
       "name": "Atlas",
-      "description": "",
-      "tags": []
+      "description": "Quad Core Multimode Filter",
+      "manualUrl": "https://www.vostokinstruments.com/atlas-user-manual",
+      "modularGridUrl": "https://modulargrid.net/e/vostok-instruments-atlas",
+      "tags": [
+        "Hardware clone",
+        "Filter"       
+      ]
     },
     {
       "slug": "Ceres",
@@ -71,20 +76,38 @@
     {
       "slug": "Fuji",
       "name": "Fuji",
-      "description": "",
-      "tags": []
+      "description": "Hexa Core Slope Generator",
+      "manualUrl": "https://www.vostokinstruments.com/fuji-user-manual",
+      "modularGridUrl": "https://modulargrid.net/e/vostok-instruments-fuji",
+      "tags": [
+        "Hardware clone",
+        "Envelope generator",
+        "LFO"       
+      ]
     },
     {
       "slug": "Sena",
       "name": "Sena",
-      "description": "",
-      "tags": []
+      "description": "Multi Channel Sound Source",
+      "manualUrl": "https://www.vostokinstruments.com/sena-user-manual",
+      "modularGridUrl": "https://modulargrid.net/e/vostok-instruments-sena",
+      "tags": [
+        "Hardware clone",
+        "Oscillator",
+        "Noise"
+      ]
     },
     {
       "slug": "Hive",
       "name": "Hive",
-      "description": "",
-      "tags": []
+      "description": "Quad Stereo Automated Mixer",
+      "manualUrl": "https://www.vostokinstruments.com/hive-user-manual",
+      "modularGridUrl": "https://modulargrid.net/e/vostok-instruments-hive",
+      "tags": [
+        "Hardware clone",
+        "Mixer",
+        "Panning"
+      ]
     }
   ]
 }

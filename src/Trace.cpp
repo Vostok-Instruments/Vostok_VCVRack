@@ -28,6 +28,8 @@ struct Trace : Module {
 		LIGHTS_LEN
 	};
 
+	bool clipOutput = true;
+
 	Trace() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
@@ -58,13 +60,30 @@ struct Trace : Module {
 		lights[NUM3_LIGHT].setBrightness(inGain[2]);
 		lights[NUM4_LIGHT].setBrightness(inGain[3]);
 
-		// TODO: do we clip?
+
 		float out = inputs[IN1_INPUT].getVoltage() * inGain[0] +
 		            inputs[IN2_INPUT].getVoltage() * inGain[1] +
 		            inputs[IN3_INPUT].getVoltage() * inGain[2] +
 		            inputs[IN4_INPUT].getVoltage() * inGain[3];
 
+		if (clipOutput) {
+			out = clamp(out, -10.f, 10.f);
+		}
+
 		outputs[OUT_OUTPUT].setVoltage(out);
+	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "clipOutput", json_boolean(clipOutput));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* clipOutputJ = json_object_get(rootJ, "clipOutput");
+		if (clipOutputJ) {
+			clipOutput = json_boolean_value(clipOutputJ);
+		}
 	}
 };
 
@@ -95,7 +114,12 @@ struct TraceWidget : ModuleWidget {
 		addChild(createLight<VostokOrangeNumberLed<2>>(mm2px(Vec(12.89, 72.488)), module, Trace::NUM2_LIGHT));
 		addChild(createLight<VostokOrangeNumberLed<3>>(mm2px(Vec(1.56, 62.668)), module, Trace::NUM3_LIGHT));
 		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(12.560, 52.488)), module, Trace::NUM4_LIGHT));
+	}
 
+	void appendContextMenu(ui::Menu* menu) override {
+		Trace* trace = dynamic_cast<Trace*>(module);
+		assert(trace);
+		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &trace->clipOutput));
 	}
 };
 
