@@ -114,7 +114,7 @@ struct AssetWidget : ModuleWidget {
 		addChild(createLight<VostokRGBNumberLed<6>>(mm2px(Vec(31.941, 111.296)), module, Asset::NUM1_LIGHT + 3 * 5));
 	}
 
-	void appendContextMenu(ui::Menu* menu) override {
+	void appendContextMenu(Menu* menu) override {
 		Asset* asset = dynamic_cast<Asset*>(module);
 		assert(asset);
 		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &asset->clipOutput));

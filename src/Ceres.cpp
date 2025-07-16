@@ -23,6 +23,7 @@ struct Ceres : Module {
 		LIGHTS_LEN
 	};
 
+	bool clipOutput = true;
 
 	Ceres() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -48,14 +49,28 @@ struct Ceres : Module {
 			const float out = in * level;
 
 			// patched outputs are not summed to the mix output
-			mix += out * (outputs[OUT1_OUTPUT + i].isConnected() ? 0.f : 1.f);
+			bool isSummed = !outputs[OUT1_OUTPUT + i].isConnected() || (i == NUM_CHANNELS - 1);
+			mix += out * (isSummed ? 1.f : 0.f);
 
 			outputs[OUT1_OUTPUT + i].setVoltage(out);
-			lights[NUM1_LIGHT + i].setBrightness(level);
+			lights[NUM1_LIGHT + i].setBrightness(out / 5.f);
 		}
 
 		// channel 6 is always the mix output
 		outputs[OUT1_OUTPUT + 5].setVoltage(mix);
+	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "clipOutput", json_boolean(clipOutput));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* clipOutputJ = json_object_get(rootJ, "clipOutput");
+		if (clipOutputJ) {
+			clipOutput = json_boolean_value(clipOutputJ);
+		}
 	}
 };
 
@@ -90,7 +105,12 @@ struct CeresWidget : ModuleWidget {
 		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(30.460, 74.537)), module, Ceres::NUM1_LIGHT + 3));
 		addChild(createLight<VostokOrangeNumberLed<5>>(mm2px(Vec(30.794, 92.853)), module, Ceres::NUM1_LIGHT + 4));
 		addChild(createLight<VostokOrangeNumberLed<6>>(mm2px(Vec(30.794, 111.296)), module, Ceres::NUM1_LIGHT + 5));
+	}
 
+	void appendContextMenu(Menu* menu) override {
+		Ceres* ceres = dynamic_cast<Ceres*>(module);
+		assert(ceres);
+		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &ceres->clipOutput));
 	}
 };
 

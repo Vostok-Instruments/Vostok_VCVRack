@@ -193,7 +193,7 @@ struct HiveWidget : ModuleWidget {
 		addChild(createLightCentered<MediumLight<RedLight>>(mm2px(Vec(34.31, 107.578)), module, Hive::RIGHT_LIGHT));
 	}
 
-	void appendContextMenu(ui::Menu* menu) override {
+	void appendContextMenu(Menu* menu) override {
 		Hive* hive = dynamic_cast<Hive*>(module);
 		assert(hive);
 		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &hive->clipOutput));

@@ -109,14 +109,13 @@ struct TraceWidget : ModuleWidget {
 
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.015, 15.203)), module, Trace::OUT_OUTPUT));
 
-
 		addChild(createLight<VostokOrangeNumberLed<1>>(mm2px(Vec(2.584, 82.545)), module, Trace::NUM1_LIGHT));
 		addChild(createLight<VostokOrangeNumberLed<2>>(mm2px(Vec(12.89, 72.488)), module, Trace::NUM2_LIGHT));
 		addChild(createLight<VostokOrangeNumberLed<3>>(mm2px(Vec(1.56, 62.668)), module, Trace::NUM3_LIGHT));
 		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(12.560, 52.488)), module, Trace::NUM4_LIGHT));
 	}
 
-	void appendContextMenu(ui::Menu* menu) override {
+	void appendContextMenu(Menu* menu) override {
 		Trace* trace = dynamic_cast<Trace*>(module);
 		assert(trace);
 		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &trace->clipOutput));
