@@ -19,17 +19,18 @@ struct Asset : Module {
 		OUTPUTS_LEN
 	};
 	enum LightId {
-		ENUMS(NUM1_LIGHT, NUM_CHANNELS),
+		ENUMS(NUM1_LIGHT, NUM_CHANNELS * 3), 	// RGB lights
 		LIGHTS_LEN
 	};
 
 	ParamQuantity* gains[NUM_CHANNELS];
 	ParamQuantity* offsets[NUM_CHANNELS];
+	bool clipOutput = true;
 
 	Asset() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		for (int i = 0; i < NUM_CHANNELS; i++) {
-			gains[i] = configParam(LEVEL1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d level", i + 1));
+			gains[i] = configParam(LEVEL1_PARAM + i, 0.f, 1.f, 1.f, string::f("Ch. %d level", i + 1));
 			offsets[i] = configParam(OFFSET1_PARAM + i, 0.f, 10.f, 0.f, string::f("Ch. %d offset", i + 1), "V");
 			configSwitch(INPUT_POLARITY1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d input", i + 1), {"Normal", "Inverted"});
 			configSwitch(OFFSET_POLARITY1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d DC Offset polarity", i + 1), {"Positive", "Negative"});
@@ -55,9 +56,28 @@ struct Asset : Module {
 			normalVoltage = in;
 
 			float out = (in * level) + offset;
+			if (clipOutput) {
+				out = clamp(out, -10.f, +10.f);
+			}
 			outputs[OUT1_OUTPUT + i].setVoltage(out);
 
-			lights[NUM1_LIGHT + i].setBrightness(level);
+			// orange for positive, blue for negative
+			lights[NUM1_LIGHT + 3 * i + 0].setBrightness(out > 0.f ? +out / 10.f : 0.f);
+			lights[NUM1_LIGHT + 3 * i + 1].setBrightness(out > 0.f ? +0.54 * out / 10.f : 0.f);
+			lights[NUM1_LIGHT + 3 * i + 2].setBrightness(out < 0.f ? -out / 10.f : 0.f);
+		}
+	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "clipOutput", json_boolean(clipOutput));
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* clipOutputJ = json_object_get(rootJ, "clipOutput");
+		if (clipOutputJ) {
+			clipOutput = json_boolean_value(clipOutputJ);
 		}
 	}
 };
@@ -86,12 +106,18 @@ struct AssetWidget : ModuleWidget {
 			addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.731, 15.337 + i * step_y)), module, Asset::OUT1_OUTPUT + i));
 		}
 
-		addChild(createLight<VostokWhiteNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Asset::NUM1_LIGHT + 0));
-		addChild(createLight<VostokWhiteNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Asset::NUM1_LIGHT + 1));
-		addChild(createLight<VostokWhiteNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Asset::NUM1_LIGHT + 2));
-		addChild(createLight<VostokWhiteNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Asset::NUM1_LIGHT + 3));
-		addChild(createLight<VostokWhiteNumberLed<5>>(mm2px(Vec(31.941, 92.853)), module, Asset::NUM1_LIGHT + 4));
-		addChild(createLight<VostokWhiteNumberLed<6>>(mm2px(Vec(31.941, 111.296)), module, Asset::NUM1_LIGHT + 5));
+		addChild(createLight<VostokRGBNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Asset::NUM1_LIGHT + 3 * 0));
+		addChild(createLight<VostokRGBNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Asset::NUM1_LIGHT + 3 * 1));
+		addChild(createLight<VostokRGBNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Asset::NUM1_LIGHT + 3 * 2));
+		addChild(createLight<VostokRGBNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Asset::NUM1_LIGHT + 3 * 3));
+		addChild(createLight<VostokRGBNumberLed<5>>(mm2px(Vec(31.941, 92.853)), module, Asset::NUM1_LIGHT + 3 * 4));
+		addChild(createLight<VostokRGBNumberLed<6>>(mm2px(Vec(31.941, 111.296)), module, Asset::NUM1_LIGHT + 3 * 5));
+	}
+
+	void appendContextMenu(ui::Menu* menu) override {
+		Asset* asset = dynamic_cast<Asset*>(module);
+		assert(asset);
+		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &asset->clipOutput));
 	}
 };
 

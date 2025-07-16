@@ -21,6 +21,7 @@ extern Model* modelHive;
 enum COLORS {
 	C_WHITE = 0,
 	C_ORANGE = 1,
+	C_RGB = 2,
 };
 
 template <int N, int COLOR>
@@ -122,6 +123,11 @@ struct VostokNumberLedT : ModuleLightWidget {
 		else if constexpr(COLOR == C_ORANGE) {
 			this->addBaseColor(SCHEME_ORANGE);
 		}
+		else if constexpr(COLOR == C_RGB) {
+			this->addBaseColor(SCHEME_RED);
+			this->addBaseColor(SCHEME_GREEN);
+			this->addBaseColor(SCHEME_BLUE);
+		}
 		else {
 			this->addBaseColor(SCHEME_WHITE); // default to white if COLOR is not recognized
 		}
@@ -168,6 +174,9 @@ using VostokWhiteNumberLed = VostokNumberLedT<N, C_WHITE>;
 
 template <int N>
 using VostokOrangeNumberLed = VostokNumberLedT<N, C_ORANGE>;
+
+template <int N>
+using VostokRGBNumberLed = VostokNumberLedT<N, C_RGB>;
 
 // derived from VCVSlider
 struct VostokSlider : app::SvgSlider {
