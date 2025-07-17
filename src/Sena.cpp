@@ -475,7 +475,16 @@ struct Sena : Module {
 
 		// outputs and lights
 		{
+			float_4 isLfo = float_4(
+			                  params[VCO_LFO_MODE1_PARAM + SINE].getValue(),
+			                  params[VCO_LFO_MODE1_PARAM + TRIANGLE].getValue(),
+			                  params[VCO_LFO_MODE1_PARAM + SAW].getValue(),
+			                  params[VCO_LFO_MODE1_PARAM + SQUARE].getValue()
+			                ) < 0.5f;
+
 			float_4 out = 5.f * ((oversamplingRatio > 1) ? oversamplerOutput.downsample() : osBufferOutput[0]);
+			// if LFO, use the first oversampling sample to avoid bandliming artifacts in the LFO range
+			out = simd::ifelse(isLfo, 5 * osBufferOutput[0], out);
 
 			outputs[OUT1_OUTPUT + SINE].setVoltage(out[SINE]);
 			outputs[OUT1_OUTPUT + TRIANGLE].setVoltage(out[TRIANGLE]);
@@ -511,7 +520,7 @@ struct Sena : Module {
 			// Blue noise: 3dB/oct
 			if (outputs[BLUE_OUTPUT].isConnected()) {
 				// apply a +6dB/oct filter to the pink noise (which is -3dB/oct) to get a +3dB/oct blue noise
-				float blue = (pink - lastPink) * 0.5f;
+				float blue = (pink - lastPink) * 0.25f * (APP->engine->getSampleRate() / 44100.f);
 				lastPink = pink;
 				outputs[BLUE_OUTPUT].setVoltage(blue);
 			}
