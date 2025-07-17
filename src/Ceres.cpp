@@ -43,7 +43,7 @@ struct Ceres : Module {
 		float normalVoltage = 0.f;
 		float mix = 0.f;
 		for (int i = 0; i < NUM_CHANNELS; i++) {
-			const float level = params[LEVEL1_PARAM + i].getValue() * clamp(inputs[CV1_INPUT + i].getNormalVoltage(5.f) / 5.f, 0.f, 1.f);
+			const float level = clamp(params[LEVEL1_PARAM + i].getValue() * inputs[CV1_INPUT + i].getNormalVoltage(5.f) / 5.f, 0.f, 1.f);
 			const float in = inputs[IN1_INPUT + i].getNormalVoltage(normalVoltage);
 			normalVoltage = in;
 			const float out = in * level;
