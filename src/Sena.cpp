@@ -215,6 +215,7 @@ struct Sena : Module {
 	bool useAdaa = true; // default is to use antiderivative antialiasing
 	dsp::ClockDivider lightDivider;
 	const int lightUpdateRate = 128;
+	const float lambda = 10.f;
 	bool removePulseDC = true;
 
 	FoldStage1 stage1;
@@ -495,7 +496,12 @@ struct Sena : Module {
 				const float sampleTimeLights = args.sampleTime * lightUpdateRate;
 				// update lights
 				for (int i = 0; i < NUM_CHANNELS; ++i) {
-					lights[NUM1_LIGHT + i].setBrightnessSmooth(std::max(out[i] / 5.f, 0.f), sampleTimeLights);
+					if (osBufferFM[0][i] > 35.) {
+						// above 35Hz, just leave LED on
+						lights[NUM1_LIGHT + i].setBrightness(1.0);
+					} else {
+						lights[NUM1_LIGHT + i].setBrightnessSmooth(std::max(out[i] / 5.f, 0.f), sampleTimeLights, lambda);
+					}
 				}
 			}
 		}
@@ -606,18 +612,20 @@ struct Sena : Module {
 
 
 		// get pot values for the mode inputs
-		float_4 modPots = float_4(
-		                    params[MOD1_PARAM + SINE].getValue(),
-		                    params[MOD1_PARAM + TRIANGLE].getValue(),
-		                    params[MOD1_PARAM + SAW].getValue(),
-		                    params[MOD1_PARAM + SQUARE].getValue()
-		                  );
 
 		// upsample mode inputs (if any are connected)
 		if (inputs[MOD1_INPUT + SINE].isConnected() ||
 		    inputs[MOD1_INPUT + TRIANGLE].isConnected() ||
 		    inputs[MOD1_INPUT + SAW].isConnected() ||
 		    inputs[MOD1_INPUT + SQUARE].isConnected()) {
+
+			float_4 modOffsets = float_4(
+								params[MOD1_PARAM + SINE].getValue(),
+								params[MOD1_PARAM + TRIANGLE].getValue(),
+								params[MOD1_PARAM + SAW].getValue(),
+								0.f);
+			float_4 modScales = float_4(1.f, 1.f, 1.f, params[MOD1_PARAM + SQUARE].getValue());
+
 
 			float_4 modInputs = float_4(
 			                      inputs[MOD1_INPUT + SINE].getVoltage(),
@@ -627,10 +635,16 @@ struct Sena : Module {
 			                    );
 
 			// combination of pot and CV controls the mods in range [0, 1]
-			modInputs = simd::clamp(simd::clamp(modInputs / 10.f, -1.f, 1.f) + modPots, 0.f, 1.f);
+			modInputs = simd::clamp(simd::clamp(modInputs / 10.f, -1.f, 1.f) * modScales + modOffsets, 0.f, 1.f);
 			oversamplerMode.upsample(modInputs);
 		}
 		else {
+			float_4 modPots = float_4(
+					params[MOD1_PARAM + SINE].getValue(),
+					params[MOD1_PARAM + TRIANGLE].getValue(),
+					params[MOD1_PARAM + SAW].getValue(),
+					params[MOD1_PARAM + SQUARE].getValue());
+
 			std::fill(osBufferMod, &osBufferMod[oversamplingRatio], modPots);
 		}
 

@@ -19,7 +19,7 @@ struct Asset : Module {
 		OUTPUTS_LEN
 	};
 	enum LightId {
-		ENUMS(NUM1_LIGHT, NUM_CHANNELS * 3), 	// RGB lights
+		ENUMS(NUM1_LIGHT, NUM_CHANNELS * 2), 	// orange/blue bipolar lights
 		LIGHTS_LEN
 	};
 
@@ -62,9 +62,8 @@ struct Asset : Module {
 			outputs[OUT1_OUTPUT + i].setVoltage(out);
 
 			// orange for positive, blue for negative
-			lights[NUM1_LIGHT + 3 * i + 0].setBrightness(out > 0.f ? +out / 10.f : 0.f);
-			lights[NUM1_LIGHT + 3 * i + 1].setBrightness(out > 0.f ? +0.54 * out / 10.f : 0.f);
-			lights[NUM1_LIGHT + 3 * i + 2].setBrightness(out < 0.f ? -out / 10.f : 0.f);
+			lights[NUM1_LIGHT + 2 * i + 0].setBrightness(out > 0.f ? +out / 10.f : 0.f);
+			lights[NUM1_LIGHT + 2 * i + 1].setBrightness(out < 0.f ? -out / 10.f : 0.f);
 		}
 	}
 
@@ -106,17 +105,26 @@ struct AssetWidget : ModuleWidget {
 			addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.731, 15.337 + i * step_y)), module, Asset::OUT1_OUTPUT + i));
 		}
 
-		addChild(createLight<VostokRGBNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Asset::NUM1_LIGHT + 3 * 0));
-		addChild(createLight<VostokRGBNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Asset::NUM1_LIGHT + 3 * 1));
-		addChild(createLight<VostokRGBNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Asset::NUM1_LIGHT + 3 * 2));
-		addChild(createLight<VostokRGBNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Asset::NUM1_LIGHT + 3 * 3));
-		addChild(createLight<VostokRGBNumberLed<5>>(mm2px(Vec(31.941, 92.853)), module, Asset::NUM1_LIGHT + 3 * 4));
-		addChild(createLight<VostokRGBNumberLed<6>>(mm2px(Vec(31.941, 111.296)), module, Asset::NUM1_LIGHT + 3 * 5));
+		addChild(createLight<VostokUpperOrangeNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Asset::NUM1_LIGHT + 2 * 0 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Asset::NUM1_LIGHT + 2 * 1 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Asset::NUM1_LIGHT + 2 * 2 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Asset::NUM1_LIGHT + 2 * 3 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<5>>(mm2px(Vec(31.941, 92.853)), module, Asset::NUM1_LIGHT + 2 * 4 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<6>>(mm2px(Vec(31.941, 111.296)), module, Asset::NUM1_LIGHT + 2 * 5 + 0));
+
+		addChild(createLight<VostokLowerBlueNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Asset::NUM1_LIGHT + 2 * 0 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Asset::NUM1_LIGHT + 2 * 1 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Asset::NUM1_LIGHT + 2 * 2 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Asset::NUM1_LIGHT + 2 * 3 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<5>>(mm2px(Vec(31.941, 92.853)), module, Asset::NUM1_LIGHT + 2 * 4 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<6>>(mm2px(Vec(31.941, 111.296)), module, Asset::NUM1_LIGHT + 2 * 5 + 1));
 	}
 
 	void appendContextMenu(Menu* menu) override {
 		Asset* asset = dynamic_cast<Asset*>(module);
 		assert(asset);
+
+		menu->addChild(new MenuSeparator());
 		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &asset->clipOutput));
 	}
 };

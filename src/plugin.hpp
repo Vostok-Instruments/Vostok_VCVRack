@@ -21,10 +21,17 @@ extern Model* modelHive;
 enum COLORS {
 	C_WHITE = 0,
 	C_ORANGE = 1,
-	C_RGB = 2,
+	C_BLUE = 2,
+	C_RGB = 3,
 };
 
-template <int N, int COLOR>
+enum SPLIT {
+	SPLIT_NONE = 0,
+	SPLIT_TOP = 1,
+	SPLIT_BOTTOM = 2
+};
+
+template <int N, int COLOR, int SPLIT = SPLIT_NONE>
 struct VostokNumberLedT : ModuleLightWidget {
 	static constexpr float backgroundGrey = 80.f / 255.f;
 
@@ -32,7 +39,7 @@ struct VostokNumberLedT : ModuleLightWidget {
 	static constexpr float circle_xs_1[] = {2.250263, 2.918860, 3.587449, 2.250263, 2.918860, 3.587449, 2.250263, 2.918860, 3.587449, 2.250263, 2.918860, 3.587449, 2.250263, 2.918860, 3.587449, 2.250263, 2.918860, 3.587449, 0.244472, 0.913086, 2.250263, 2.918860, 3.587449, 0.244472, 0.913086, 1.581675, 2.250263, 2.918860, 3.587449, 0.913086, 1.581675, 2.250263, 2.918860, 3.587449, 1.581675, 2.250263, 2.918860, 3.587449};
 	static constexpr float circle_ys_1[] = {6.570861, 6.570861, 6.570861, 5.867958, 5.867958, 5.867958, 5.165054, 5.165054, 5.165054, 4.462066, 4.462066, 4.462066, 3.759163, 3.759163, 3.759163, 3.056174, 3.056174, 3.056174, 2.353271, 2.353271, 2.353271, 2.353271, 2.353271, 1.650283, 1.650283, 1.650283, 1.650283, 1.650283, 1.650283, 0.947379, 0.947379, 0.947379, 0.947379, 0.947379, 0.244476, 0.244476, 0.244476, 0.244476};
 	static constexpr int num_circles_1 = 38;
-	const Vec size_1 = Vec(45.258903, 80.496002);
+	const Vec size_1 = Vec(3.832, 6.815);
 
 	// Data for N = 2
 	static constexpr float circle_xs_2[] = {0.244477, 0.913066, 0.244477, 0.913066, 0.913066, 0.244477, 0.913066, 0.244477, 0.913066, 0.244477, 0.913066, 0.913066, 1.624707, 2.293304, 2.961893, 3.630484, 4.299078, 4.967667, 1.624707, 2.293304, 2.961893, 3.630484, 4.299078, 4.967667, 1.624707, 2.293304, 2.961893, 1.624707, 2.293304, 2.961893, 3.630484, 2.293304, 2.961893, 3.630484, 4.299078, 2.961893, 3.630484, 4.299078, 4.967667, 1.624707, 3.630484, 4.299078, 4.967667, 1.624707, 3.630484, 4.299078, 4.967667, 1.624707, 2.293304, 2.961893, 3.630484, 4.299078, 4.967667, 1.624707, 2.293304, 2.961893, 3.630484, 4.299078};
@@ -68,6 +75,7 @@ struct VostokNumberLedT : ModuleLightWidget {
 	const float* circle_xs;
 	const float* circle_ys;
 	int num_circles;
+	float split_threshold = 3.5f;
 
 	static constexpr float radius = 0.75;
 	const float factor = 1.f / (SVG_DPI / MM_PER_IN); // factor to convert from mm to px
@@ -114,6 +122,7 @@ struct VostokNumberLedT : ModuleLightWidget {
 			circle_xs = nullptr;
 			circle_ys = nullptr;
 			num_circles = 0;
+			split_threshold = 0.f;
 		}
 		this->box.pos = mm2px(Vec(0.0, 0.0)); // position of the LED
 
@@ -121,7 +130,12 @@ struct VostokNumberLedT : ModuleLightWidget {
 			this->addBaseColor(SCHEME_WHITE);
 		}
 		else if constexpr(COLOR == C_ORANGE) {
-			this->addBaseColor(SCHEME_ORANGE);
+			static const NVGcolor VOSTOK_ORANGE = nvgRGB(235, 165, 0);
+			this->addBaseColor(VOSTOK_ORANGE);
+		}
+		else if constexpr(COLOR == C_BLUE) {
+			static const NVGcolor VOSTOK_BLUE = nvgRGB(0, 20, 200);
+			this->addBaseColor(VOSTOK_BLUE);
 		}
 		else if constexpr(COLOR == C_RGB) {
 			this->addBaseColor(SCHEME_RED);
@@ -146,6 +160,8 @@ struct VostokNumberLedT : ModuleLightWidget {
 			nvgFill(args.vg); // this is not needed as we set the fill color above
 		}
 
+		nvgRect(args.vg, 0, 0, box.size.x / factor, box.size.y / factor);
+
 	}
 
 	void drawLayer(const DrawArgs& args, int layer) override {
@@ -157,15 +173,55 @@ struct VostokNumberLedT : ModuleLightWidget {
 				nvgFillColor(args.vg, color);
 				for (int i = 0; i < num_circles; i++) {
 
+					if constexpr(SPLIT == SPLIT_TOP) {
+						if (circle_ys[i] > split_threshold) {
+							continue; // skip circles that are above the top of the widget
+						}
+					}
+					else if constexpr(SPLIT == SPLIT_BOTTOM) {
+						if (circle_ys[i] < split_threshold) {
+							continue; // skip circles that are below the bottom of the widget
+						}
+					}
 					// draw the circle
 					nvgBeginPath(args.vg);
 					nvgCircle(args.vg, circle_xs[i] / factor, circle_ys[i] / factor, radius);
 					nvgFill(args.vg); // this is not needed as we set the fill color above
 				}
+				
+				// note yet working!
+				// drawHalo(args);
 			}
 		}
 
 		Widget::drawLayer(args, layer);
+	}
+
+	void drawHalo(const DrawArgs& args) override {
+		// Don't draw halo if rendering in a framebuffer, e.g. screenshots or Module Browser
+		if (args.fb)
+			return;
+
+		const float halo = settings::haloBrightness;
+		if (halo == 0.f)
+			return;
+
+		// If light is off, rendering the halo gives no effect.
+		if (color.r == 0.f && color.g == 0.f && color.b == 0.f)
+			return;
+
+		math::Vec c = factor * box.size.div(2);
+		float radius = mm2px(5.121 );
+		float oradius = radius; //radius + std::min(radius * 2.f, 15.f);
+
+		nvgBeginPath(args.vg);
+		nvgRect(args.vg, c.x - oradius, c.y - oradius, 2 * oradius, 2 * oradius);
+
+		NVGcolor icol = color::mult(color, halo);
+		NVGcolor ocol = nvgRGBA(0, 0, 0, 0);
+		NVGpaint paint = nvgRadialGradient(args.vg, c.x, c.y, radius, oradius, icol, ocol);
+		nvgFillPaint(args.vg, paint);
+		nvgFill(args.vg);
 	}
 };
 
@@ -177,6 +233,18 @@ using VostokOrangeNumberLed = VostokNumberLedT<N, C_ORANGE>;
 
 template <int N>
 using VostokRGBNumberLed = VostokNumberLedT<N, C_RGB>;
+
+template <int N>
+using VostokUpperWhiteNumberLed = VostokNumberLedT<N, C_WHITE, SPLIT_TOP>;
+template <int N>
+using VostokLowerOrangeNumberLed = VostokNumberLedT<N, C_ORANGE, SPLIT_BOTTOM>;
+
+// for Asset
+template <int N>
+using VostokUpperOrangeNumberLed = VostokNumberLedT<N, C_ORANGE, SPLIT_TOP>;
+template <int N>
+using VostokLowerBlueNumberLed = VostokNumberLedT<N, C_BLUE, SPLIT_BOTTOM>;
+
 
 // derived from VCVSlider
 struct VostokSlider : app::SvgSlider {

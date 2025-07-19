@@ -26,7 +26,7 @@ struct Hive : Module {
 		OUTPUTS_LEN
 	};
 	enum LightId {
-		ENUMS(NUM_LIGHT, NUM_CHANNELS),
+		ENUMS(NUM_LIGHT, NUM_CHANNELS * 2),
 		LEFT_LIGHT,
 		RIGHT_LIGHT,
 		LIGHTS_LEN
@@ -39,8 +39,11 @@ struct Hive : Module {
 
 	chowdsp::TBiquadFilter<float_4> dcBlockFilter[NUM_SIDES];
 	bool clipOutput = true;
+	bool acCoupling = true;
 	dsp::ClockDivider lightDivider;
 	const int lightUpdateRate = 128;
+	const float lambda = 10; 
+
 	dsp::VuMeter2 leftMeter, rightMeter;
 
 	Hive() {
@@ -61,7 +64,7 @@ struct Hive : Module {
 		configOutput(RIGHT_OUTPUT, "Right");
 
 		lightDivider.setDivision(lightUpdateRate);
-		leftMeter.lambda = rightMeter.lambda = 30.f; // 30Hz time constant for peak detection
+		leftMeter.lambda = rightMeter.lambda = lambda;
 		leftMeter.mode = rightMeter.mode = dsp::VuMeter2::RMS; // peak mode by default
 
 	}
@@ -69,8 +72,10 @@ struct Hive : Module {
 	void onSampleRateChange() override {
 		float sampleRate = APP->engine->getSampleRate();
 
-		dcBlockFilter[0].setParameters(chowdsp::TBiquadFilter<float_4>::HIGHPASS, (22.05 / sampleRate), 0.707, 1.0f);
-		dcBlockFilter[1].setParameters(chowdsp::TBiquadFilter<float_4>::HIGHPASS, (22.05 / sampleRate), 0.707, 1.0f);
+		// this doesn't work with floats below ~0.0004
+		const float fc = std::max(0.0004, (30. / sampleRate));
+		dcBlockFilter[0].setParameters(chowdsp::TBiquadFilter<float_4>::HIGHPASS, fc, 0.707, 1.0f);
+		dcBlockFilter[1].setParameters(chowdsp::TBiquadFilter<float_4>::HIGHPASS, fc, 0.707, 1.0f);
 
 		dcBlockFilter[0].reset();
 		dcBlockFilter[1].reset();
@@ -108,9 +113,12 @@ struct Hive : Module {
 		                  params[GAIN_PARAM + 2].getValue(),
 		                  params[GAIN_PARAM + 3].getValue());
 
-		// mixer is AC coupled
-		leftIns = dcBlockFilter[LEFT].process(leftIns);
-		rightIns = dcBlockFilter[RIGHT].process(rightIns);
+
+		// mixer is AC coupled (by default)
+		if (acCoupling) {
+			leftIns = dcBlockFilter[LEFT].process(leftIns);
+			rightIns = dcBlockFilter[RIGHT].process(rightIns);
+		}
 
 		const float_4 panLeft = simd::clamp(1 - pan, 0.f, 1.f);
 		const float_4 panRight = simd::clamp(1 + pan, 0.f, 1.f);
@@ -134,6 +142,12 @@ struct Hive : Module {
 
 		if (lightDivider.process()) {
 			const float sampleTime = args.sampleTime * lightUpdateRate;
+
+			for (int i = 0; i < NUM_CHANNELS; ++i) {
+				lights[NUM_LIGHT + i * 2].setBrightnessSmooth(leftIns[i] / 10.f, sampleTime, lambda);
+				lights[NUM_LIGHT + i * 2 + 1].setBrightnessSmooth(rightIns[i] / 10.f, sampleTime, lambda);
+			}
+
 			leftMeter.process(sampleTime, leftSum / 5.f);
 			rightMeter.process(sampleTime, rightSum / 5.f);
 			lights[LEFT_LIGHT].setBrightness(leftMeter.getBrightness(-3.0f, 0.f));
@@ -144,6 +158,7 @@ struct Hive : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "clipOutput", json_boolean(clipOutput));
+		json_object_set_new(rootJ, "acCoupling", json_boolean(acCoupling));
 		return rootJ;
 	}
 
@@ -151,6 +166,11 @@ struct Hive : Module {
 		json_t* clipOutputJ = json_object_get(rootJ, "clipOutput");
 		if (clipOutputJ) {
 			clipOutput = json_is_true(clipOutputJ);
+		}
+
+		json_t* acCouplingJ = json_object_get(rootJ, "acCoupling");
+		if (acCouplingJ) {
+			acCoupling = json_is_true(acCouplingJ);
 		}
 	}
 };
@@ -184,10 +204,14 @@ struct HiveWidget : ModuleWidget {
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(27.615, 96.403)), module, Hive::LEFT_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(27.615, 111.403)), module, Hive::RIGHT_OUTPUT));
 
-		addChild(createLight<VostokWhiteNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Hive::NUM_LIGHT + 0));
-		addChild(createLight<VostokWhiteNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Hive::NUM_LIGHT + 1));
-		addChild(createLight<VostokWhiteNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Hive::NUM_LIGHT + 2));
-		addChild(createLight<VostokWhiteNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Hive::NUM_LIGHT + 3));
+		addChild(createLight<VostokUpperWhiteNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Hive::NUM_LIGHT + 2 * 0 + 0)); 	// white top
+		addChild(createLight<VostokLowerOrangeNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Hive::NUM_LIGHT + 2 * 0 + 1)); 	// orange bottom
+		addChild(createLight<VostokUpperWhiteNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 0));
+		addChild(createLight<VostokLowerOrangeNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 1));
+		addChild(createLight<VostokUpperWhiteNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 0));
+		addChild(createLight<VostokLowerOrangeNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 1));
+		addChild(createLight<VostokUpperWhiteNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 0));
+		addChild(createLight<VostokLowerOrangeNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 1));
 
 		addChild(createLightCentered<MediumLight<RedLight>>(mm2px(Vec(34.31, 100.043)), module, Hive::LEFT_LIGHT));
 		addChild(createLightCentered<MediumLight<RedLight>>(mm2px(Vec(34.31, 107.578)), module, Hive::RIGHT_LIGHT));
@@ -196,6 +220,10 @@ struct HiveWidget : ModuleWidget {
 	void appendContextMenu(Menu* menu) override {
 		Hive* hive = dynamic_cast<Hive*>(module);
 		assert(hive);
+
+		menu->addChild(new MenuSeparator());
+
+		menu->addChild(createBoolPtrMenuItem("AC coupling", "", &hive->acCoupling));
 		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &hive->clipOutput));
 	}
 };

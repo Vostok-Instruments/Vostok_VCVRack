@@ -58,10 +58,10 @@ struct Path : Module {
 		outputs[OUT4_OUTPUT].setVoltage(in * outGains[3]);
 
 		// LEDs
-		lights[NUM1_LIGHT].setBrightness(outGains[1]);
-		lights[NUM2_LIGHT].setBrightness(outGains[2]);
-		lights[NUM3_LIGHT].setBrightness(outGains[3]);
-		lights[NUM4_LIGHT].setBrightness(outGains[4]);
+		lights[NUM1_LIGHT].setBrightness(outGains[0]);
+		lights[NUM2_LIGHT].setBrightness(outGains[1]);
+		lights[NUM3_LIGHT].setBrightness(outGains[2]);
+		lights[NUM4_LIGHT].setBrightness(outGains[3]);
 	}
 };
 
