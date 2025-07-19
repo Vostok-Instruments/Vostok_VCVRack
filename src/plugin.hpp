@@ -31,6 +31,10 @@ enum SPLIT {
 	SPLIT_BOTTOM = 2
 };
 
+static const NVGcolor VOSTOK_ORANGE = nvgRGB(255, 153, 51);
+static const NVGcolor VOSTOK_BLUE = nvgRGB(51, 153, 255);
+
+
 template <int N, int COLOR, int SPLIT = SPLIT_NONE>
 struct VostokNumberLedT : ModuleLightWidget {
 	static constexpr float backgroundGrey = 80.f / 255.f;
@@ -130,11 +134,9 @@ struct VostokNumberLedT : ModuleLightWidget {
 			this->addBaseColor(SCHEME_WHITE);
 		}
 		else if constexpr(COLOR == C_ORANGE) {
-			static const NVGcolor VOSTOK_ORANGE = nvgRGB(235, 165, 0);
 			this->addBaseColor(VOSTOK_ORANGE);
 		}
 		else if constexpr(COLOR == C_BLUE) {
-			static const NVGcolor VOSTOK_BLUE = nvgRGB(0, 20, 200);
 			this->addBaseColor(VOSTOK_BLUE);
 		}
 		else if constexpr(COLOR == C_RGB) {
