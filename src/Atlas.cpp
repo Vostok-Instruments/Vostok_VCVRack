@@ -142,7 +142,7 @@ struct AtlasWidget : ModuleWidget {
 
 		}
 
-		addParam(createParam<VostokSliderHoriz>(mm2px(Vec(46.752, 111.224)), module, Atlas::SCAN_PARAM));
+		addParam(createParam<VostokSliderHoriz>(mm2px(Vec(46.752, 109.224)), module, Atlas::SCAN_PARAM));
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(28.68, 112.704)), module, Atlas::SCAN_IN_INPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(37.914, 112.704)), module, Atlas::SCAN_OUT_OUTPUT));
 

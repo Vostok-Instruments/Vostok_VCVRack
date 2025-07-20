@@ -22,16 +22,17 @@
    inkscape:pageopacity="0.0"
    inkscape:pagecheckerboard="0"
    inkscape:deskcolor="#d1d1d1"
-   inkscape:zoom="0.79797824"
-   inkscape:cx="144.11421"
-   inkscape:cy="169.80413"
+   inkscape:zoom="2.2570233"
+   inkscape:cx="193.61785"
+   inkscape:cy="371.50702"
    inkscape:window-width="1392"
    inkscape:window-height="1212"
    inkscape:window-x="0"
    inkscape:window-y="25"
    inkscape:window-maximized="0"
    inkscape:current-layer="svg656"
-   inkscape:document-units="mm" />
+   inkscape:document-units="mm"
+   showgrid="false" />
     <rect
    x="0"
    y="0"
@@ -234,8 +235,8 @@
    transform="matrix(0.119899,0,0,0.12,2.20019,-7.53596)"
    id="g248">
                     <path
-   d="M 132.237,2495.87 H 1503.47"
-   style="fill:none;stroke:#b69000;stroke-width:5px;stroke-dasharray:20.01, 20.01, 20.01, 20.01"
+   style="color:#000000;clip-rule:nonzero;fill:#b69000;fill-rule:nonzero;stroke-linejoin:miter;stroke-dasharray:20.01, 20.01, 20.01, 20.01;-inkscape-stroke:none"
+   d="m 132.23633,2493.3691 v 5 h 20.00976 v -5 z m 40.02148,0 v 5 h 20.00977 v -5 z m 40.01953,0 v 5 h 20.00977 v -5 z m 40.01953,0 v 5 h 20.00977 v -5 z m 40.01954,0 v 5 h 20.00976 v -5 z m 40.02148,0 v 5 h 20.00977 v -5 z m 40.01953,0 v 5 h 20.00977 v -5 z m 40.01953,0 v 5 h 20.00977 v -5 z m 40.01953,0 v 5 h 20.00977 v -5 z m 40.02149,0 v 5 h 20.00976 v -5 z m 40.01953,0 v 5 h 20.00977 v -5 z m 40.01953,0 v 5 h 20.00977 v -5 z m 40.01953,0 v 5 h 20.00977 v -5 z m 40.01953,0 v 5 h 20.01172 v -5 z m 40.02149,0 v 5 h 20.00976 v -5 z m 40.01953,0 v 5 h 20.00976 v -5 z m 40.01953,0 v 5 h 20.00977 v -5 z m 40.01953,0 v 5 h 20.01172 v -5 z m 40.02149,0 v 5 h 20.00976 v -5 z m 40.01953,0 v 5 h 20.00976 v -5 z m 40.01953,0 v 5 h 20.00976 v -5 z m 40.01953,0 v 5 h 20.01172 v -5 z m 40.02145,0 v 5 h 20.0098 v -5 z m 40.0196,0 v 5 h 20.0097 v -5 z m 40.0195,0 v 5 h 20.0098 v -5 z m 40.0195,0 v 5 h 20.0098 v -5 z m 40.0215,0 v 5 h 20.0098 v -5 z m 40.0195,0 v 5 h 20.0098 v -5 z m 40.0196,0 v 5 h 20.0097 v -5 z m 40.0195,0 v 5 h 20.0098 v -5 z m 40.0215,0 v 5 h 20.0098 v -5 z m 40.0195,0 v 5 h 20.0098 v -5 z m 40.0196,0 v 5 h 20.0097 v -5 z m 40.0195,0 v 5 h 20.0098 v -5 z m 40.0215,0 v 5 h 10.5527 v -5 z"
    id="path247" />
                 </g>
                 <g
