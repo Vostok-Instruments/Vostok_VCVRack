@@ -214,8 +214,6 @@ struct Sena : Module {
 	int oversamplingIndex = 1; 	// default is 2^oversamplingIndex == x2 oversampling
 	bool useAdaa = true; // default is to use antiderivative antialiasing
 	dsp::ClockDivider lightDivider;
-	const int lightUpdateRate = 128;
-	const float lambda = 10.f;
 	bool removePulseDC = true;
 
 	FoldStage1 stage1;

@@ -24,6 +24,7 @@ struct Ceres : Module {
 	};
 
 	bool clipOutput = true;
+	dsp::ClockDivider lightDivider;
 
 	Ceres() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -37,9 +38,14 @@ struct Ceres : Module {
 				out->description = "Mix of channels 1-6";
 			}
 		}
+
+		lightDivider.setDivision(lightUpdateRate);
 	}
 
 	void process(const ProcessArgs& args) override {
+		
+		const bool updateLEDs = lightDivider.process();
+
 		float normalVoltage = 0.f;
 		float mix = 0.f;
 		for (int i = 0; i < NUM_CHANNELS; i++) {
@@ -53,7 +59,10 @@ struct Ceres : Module {
 			mix += out * (isSummed ? 1.f : 0.f);
 
 			outputs[OUT1_OUTPUT + i].setVoltage(out);
-			lights[NUM1_LIGHT + i].setBrightness(out / 5.f);
+			if (updateLEDs) {
+				const float sampleTime = args.sampleTime * lightUpdateRate;
+				lights[NUM1_LIGHT + i].setBrightnessSmooth(out / 4.f, sampleTime, lambda);
+			}
 		}
 
 		// channel 6 is always the mix output

@@ -43,14 +43,18 @@ struct Fuji : Module {
 			configInput(GATE1_INPUT + i, string::f("Gate Ch. %d", i + 1));
 			configOutput(OUT1_OUTPUT + i, string::f("Ch. %d", i + 1));
 		}
+
+		lightDivider.setDivision(lightUpdateRate);
 	}
 
 	dsp::ExponentialSlewLimiter attackSlew[NUM_CHANNELS];
 	dsp::ExponentialSlewLimiter decaySlew[NUM_CHANNELS];
 	dsp::SchmittTrigger gateTrigger[NUM_CHANNELS];
 	dsp::PulseGenerator pulseGen[NUM_CHANNELS];
+	dsp::ClockDivider lightDivider;
 
 	void process(const ProcessArgs& args) override {
+		const bool updateLEDs = lightDivider.process();
 
 		for (int i = 0; i < NUM_CHANNELS; i++) {
 
@@ -62,7 +66,7 @@ struct Fuji : Module {
 			if (gateTrigger[i].process(inputs[GATE1_INPUT + i].getVoltage())) {
 				pulseGen[i].trigger(1.2 * attackTime);
 			}
-						
+
 			// Gate is high, start attack phase
 			attackSlew[i].setRiseFallTau(attackTime, decayTime);
 
@@ -74,8 +78,11 @@ struct Fuji : Module {
 			float envelope = attackSlew[i].process(args.sampleTime, slewSignal);
 
 			outputs[OUT1_OUTPUT + i].setVoltage(envelope * 10.f); // Scale to 10V
-			
-			lights[NUM1_LIGHT + i].setBrightness(envelope);
+
+			if (updateLEDs) {
+				const float sampleTime = args.sampleTime * lightUpdateRate;
+				lights[NUM1_LIGHT + i].setBrightnessSmooth(envelope, sampleTime, lambda);
+			}
 		}
 
 	}

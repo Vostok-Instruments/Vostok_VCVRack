@@ -29,6 +29,7 @@ struct Trace : Module {
 	};
 
 	bool clipOutput = true;
+	dsp::ClockDivider lightDivider;
 
 	Trace() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -46,6 +47,8 @@ struct Trace : Module {
 		configInput(IN4_INPUT, "Ch. 4");
 
 		configOutput(OUT_OUTPUT, "Signal");
+	
+		lightDivider.setDivision(lightUpdateRate);
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -55,11 +58,13 @@ struct Trace : Module {
 
 		float_4 inGain = gainsForChannels(scanValue);
 
-		lights[NUM1_LIGHT].setBrightness(inGain[0]);
-		lights[NUM2_LIGHT].setBrightness(inGain[1]);
-		lights[NUM3_LIGHT].setBrightness(inGain[2]);
-		lights[NUM4_LIGHT].setBrightness(inGain[3]);
-
+		if (lightDivider.process()) {
+			const float sampleTime = args.sampleTime * lightUpdateRate;
+			lights[NUM1_LIGHT].setBrightnessSmooth(inGain[0], sampleTime, lambda);
+			lights[NUM2_LIGHT].setBrightnessSmooth(inGain[1], sampleTime, lambda);
+			lights[NUM3_LIGHT].setBrightnessSmooth(inGain[2], sampleTime, lambda);
+			lights[NUM4_LIGHT].setBrightnessSmooth(inGain[3], sampleTime, lambda);
+		}
 
 		float out = inputs[IN1_INPUT].getVoltage() * inGain[0] +
 		            inputs[IN2_INPUT].getVoltage() * inGain[1] +

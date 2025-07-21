@@ -40,7 +40,6 @@ struct Atlas : Module {
 
 	ripples::RipplesEngine engines[NUM_CHANNELS];
 	dsp::ClockDivider lightDivider;
-	const static int LIGHT_UPDATE_RATE = 32; // 32 frames per light update
 
 	Atlas() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -59,7 +58,7 @@ struct Atlas : Module {
 		configParam(SCAN_PARAM, 0.f, 1.f, 0.f, "Scan");
 		configOutput(SCAN_OUT_OUTPUT, "Scan");
 
-		lightDivider.setDivision(LIGHT_UPDATE_RATE);
+		lightDivider.setDivision(lightUpdateRate);
 	}
 
 	void onReset(const ResetEvent& e) override {
@@ -108,8 +107,8 @@ struct Atlas : Module {
 			outputs[OUT1_OUTPUT + i].setVoltage(output);
 
 			if (updateLeds) {
-				const int lightIndex = NUM1_LIGHT + i;
-				lights[lightIndex].setSmoothBrightness(std::abs(normalInput / 10.f), args.sampleTime * LIGHT_UPDATE_RATE);
+				const float sampleTime = args.sampleTime * lightUpdateRate;
+				lights[NUM1_LIGHT + i].setBrightnessSmooth(std::max(0.f, normalInput / 5.f), sampleTime, lambda);
 			}
 		}
 	}
@@ -139,7 +138,6 @@ struct AtlasWidget : ModuleWidget {
 			addInput(createInputCentered<PJ301MPort>(mm2px(Vec(17.426, 15.297 + i * step_y)), module, Atlas::FREQ1_INPUT + i));
 			addInput(createInputCentered<PJ301MPort>(mm2px(Vec(26.649, 15.297 + i * step_y)), module, Atlas::FM_RES1_INPUT + i));
 			addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(35.872, 15.297 + i * step_y)), module, Atlas::OUT1_OUTPUT + i));
-
 		}
 
 		addParam(createParam<VostokSliderHoriz>(mm2px(Vec(46.752, 109.224)), module, Atlas::SCAN_PARAM));

@@ -27,6 +27,8 @@ struct Asset : Module {
 	ParamQuantity* offsets[NUM_CHANNELS];
 	bool clipOutput = true;
 
+	dsp::ClockDivider lightDivider;
+
 	Asset() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		for (int i = 0; i < NUM_CHANNELS; i++) {
@@ -37,9 +39,14 @@ struct Asset : Module {
 			configInput(IN1_INPUT + i, string::f("Ch. %d", i + 1));
 			configOutput(OUT1_OUTPUT + i, string::f("Ch. %d", i + 1));
 		}
+
+		lightDivider.setDivision(lightUpdateRate);
 	}
 
 	void process(const ProcessArgs& args) override {
+
+		const bool doUpdate = lightDivider.process();
+		const float sampleTime = args.sampleTime * lightUpdateRate;
 
 		float normalVoltage = 0.f;
 		for (int i = 0; i < NUM_CHANNELS; i++) {
@@ -61,9 +68,11 @@ struct Asset : Module {
 			}
 			outputs[OUT1_OUTPUT + i].setVoltage(out);
 
-			// orange for positive, blue for negative
-			lights[NUM1_LIGHT + 2 * i + 0].setBrightness(out > 0.f ? +out / 10.f : 0.f);
-			lights[NUM1_LIGHT + 2 * i + 1].setBrightness(out < 0.f ? -out / 10.f : 0.f);
+			if (doUpdate) {
+				// orange for positive, blue for negative
+				lights[NUM1_LIGHT + 2 * i + 0].setBrightnessSmooth(out > 0.f ? +out / 5.f : 0.f, sampleTime, lambda);
+				lights[NUM1_LIGHT + 2 * i + 1].setBrightnessSmooth(out < 0.f ? -out / 5.f : 0.f, sampleTime, lambda);
+			}
 		}
 	}
 

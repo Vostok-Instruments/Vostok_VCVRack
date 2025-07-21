@@ -28,6 +28,8 @@ struct Path : Module {
 		LIGHTS_LEN
 	};
 
+	dsp::ClockDivider lightDivider;
+
 	Path() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(ROUTE_PARAM, 0.f, 1.f, 0.f, "Route");
@@ -42,6 +44,8 @@ struct Path : Module {
 		configOutput(OUT2_OUTPUT, "Ch. 2");
 		configOutput(OUT3_OUTPUT, "Ch. 3");
 		configOutput(OUT4_OUTPUT, "Ch. 4");
+
+		lightDivider.setDivision(lightUpdateRate);
 	}
 
 	void process(const ProcessArgs& args) override {
@@ -50,18 +54,21 @@ struct Path : Module {
 		const float routeValue = clamp(params[ROUTE_PARAM].getValue() + routeCv, 0.f, 1.f);
 
 		float_4 outGains = gainsForChannels(routeValue);
-		
+
 		float in = inputs[IN_INPUT].getNormalVoltage(10.f);
 		outputs[OUT1_OUTPUT].setVoltage(in * outGains[0]);
 		outputs[OUT2_OUTPUT].setVoltage(in * outGains[1]);
 		outputs[OUT3_OUTPUT].setVoltage(in * outGains[2]);
 		outputs[OUT4_OUTPUT].setVoltage(in * outGains[3]);
 
-		// LEDs
-		lights[NUM1_LIGHT].setBrightness(outGains[0]);
-		lights[NUM2_LIGHT].setBrightness(outGains[1]);
-		lights[NUM3_LIGHT].setBrightness(outGains[2]);
-		lights[NUM4_LIGHT].setBrightness(outGains[3]);
+		if (lightDivider.process()) {
+			const float sampleTime = args.sampleTime * lightUpdateRate;
+			// LEDs
+			lights[NUM1_LIGHT].setBrightnessSmooth(outGains[0], sampleTime, lambda);
+			lights[NUM2_LIGHT].setBrightnessSmooth(outGains[1], sampleTime, lambda);
+			lights[NUM3_LIGHT].setBrightnessSmooth(outGains[2], sampleTime, lambda);
+			lights[NUM4_LIGHT].setBrightnessSmooth(outGains[3], sampleTime, lambda);
+		}
 	}
 };
 

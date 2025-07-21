@@ -18,6 +18,9 @@ extern Model* modelFuji;
 extern Model* modelSena;
 extern Model* modelHive;
 
+const int lightUpdateRate = 128;
+const float lambda = 15;
+
 enum COLORS {
 	C_WHITE = 0,
 	C_ORANGE = 1,
@@ -171,18 +174,26 @@ struct VostokNumberLedT : ModuleLightWidget {
 
 			if (module && !module->isBypassed()) {
 
-				// main RGB color
-				nvgFillColor(args.vg, color);
 				for (int i = 0; i < num_circles; i++) {
+					// main RGB color
+					nvgFillColor(args.vg, color);
 
 					if constexpr(SPLIT == SPLIT_TOP) {
 						if (circle_ys[i] > split_threshold) {
-							continue; // skip circles that are above the top of the widget
+							// simulate a little LED "bleed"
+							const float fade = color.a * clamp(0.8 - 0.3 * (circle_ys[i] - split_threshold), 0.f, 1.f);
+							NVGcolor fadedColor = color;
+							fadedColor.a = fade;
+							nvgFillColor(args.vg, fadedColor);
 						}
 					}
 					else if constexpr(SPLIT == SPLIT_BOTTOM) {
 						if (circle_ys[i] < split_threshold) {
-							continue; // skip circles that are below the bottom of the widget
+							// simulate a little LED "bleed"
+							const float fade = color.a * clamp(0.8 - 0.3 * (split_threshold - circle_ys[i]), 0.f, 1.f);
+							NVGcolor fadedColor = color;
+							fadedColor.a = fade;
+							nvgFillColor(args.vg, fadedColor);
 						}
 					}
 					// draw the circle
@@ -190,7 +201,7 @@ struct VostokNumberLedT : ModuleLightWidget {
 					nvgCircle(args.vg, circle_xs[i] / factor, circle_ys[i] / factor, radius);
 					nvgFill(args.vg); // this is not needed as we set the fill color above
 				}
-				
+
 				// note yet working!
 				// drawHalo(args);
 			}
@@ -213,7 +224,7 @@ struct VostokNumberLedT : ModuleLightWidget {
 			return;
 
 		math::Vec c = factor * box.size.div(2);
-		float radius = mm2px(5.121 );
+		float radius = mm2px(5.121);
 		float oradius = radius; //radius + std::min(radius * 2.f, 15.f);
 
 		nvgBeginPath(args.vg);

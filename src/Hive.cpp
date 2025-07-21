@@ -41,8 +41,6 @@ struct Hive : Module {
 	bool clipOutput = true;
 	bool acCoupling = true;
 	dsp::ClockDivider lightDivider;
-	const int lightUpdateRate = 128;
-	const float lambda = 10; 
 
 	dsp::VuMeter2 leftMeter, rightMeter;
 
