@@ -146,8 +146,8 @@ struct Hive : Module {
 				lights[NUM_LIGHT + i * 2 + 1].setBrightnessSmooth(rightIns[i] / 10.f, sampleTime, lambda);
 			}
 
-			leftMeter.process(sampleTime, leftSum / 5.f);
-			rightMeter.process(sampleTime, rightSum / 5.f);
+			leftMeter.process(sampleTime, leftSum / 6.f);
+			rightMeter.process(sampleTime, rightSum / 6.f);
 			lights[LEFT_LIGHT].setBrightness(leftMeter.getBrightness(-3.0f, 0.f));
 			lights[RIGHT_LIGHT].setBrightness(rightMeter.getBrightness(-3.0f, 0.f));
 		}
@@ -208,11 +208,11 @@ struct HiveWidget : ModuleWidget {
 		addChild(createLight<VostokLowerOrangeNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 1));
 		addChild(createLight<VostokUpperWhiteNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 0));
 		addChild(createLight<VostokLowerOrangeNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 1));
-		addChild(createLight<VostokUpperWhiteNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 0));
+		addChild(createLight<VostokUpperWhiteNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 0));
 		addChild(createLight<VostokLowerOrangeNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 1));
 
-		addChild(createLightCentered<MediumLight<RedLight>>(mm2px(Vec(34.31, 100.043)), module, Hive::LEFT_LIGHT));
-		addChild(createLightCentered<MediumLight<RedLight>>(mm2px(Vec(34.31, 107.578)), module, Hive::RIGHT_LIGHT));
+		addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(34.31, 100.043)), module, Hive::LEFT_LIGHT));
+		addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(34.31, 107.578)), module, Hive::RIGHT_LIGHT));
 	}
 
 	void appendContextMenu(Menu* menu) override {

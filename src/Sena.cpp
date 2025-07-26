@@ -234,9 +234,11 @@ struct Sena : Module {
 	// VCO mode ranges
 	constexpr static float kVcoFreqKnobMinCoarse = 15.f; // min frequency knob value
 	constexpr static float kVcoFreqKnobMaxCoarse = 1000.f; // max frequency knob value
+	const float defaultFreqCoarse = rescale(std::log2(dsp::FREQ_C4), std::log2(kVcoFreqKnobMinCoarse), std::log2(kVcoFreqKnobMaxCoarse), 0.f, 1.f);
 
-	constexpr static float kVcoFreqKnobMinFine = 15.f; // min frequency knob value
-	constexpr static float kVcoFreqKnobMaxFine = 15.f * (1 + 2.f / 12.f) ; // max frequency knob value (+2 semitones)
+	constexpr static float FREQ_C0 = 16.352; // C0 frequency
+	constexpr static float kVcoFreqKnobMinFine = FREQ_C0 - 1.f / 12.f; 	// min frequency knob value
+	constexpr static float kVcoFreqKnobMaxFine = FREQ_C0 + 1.f / 12.f; 	// max frequency knob value
 
 	// LFO mode ranges
 	constexpr static float kLfoFreqKnobMinCoarse = 0.15f; // max frequency knob value
@@ -287,10 +289,9 @@ struct Sena : Module {
 
 	Sena() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
-		const float defaultFreq = rescale(std::log2(dsp::FREQ_C4), std::log2(kVcoFreqKnobMinCoarse), std::log2(kVcoFreqKnobMaxCoarse), 0.f, 1.f);
 
 		for (int i = 0; i < NUM_CHANNELS; ++i) {
-			freqParams[i] = configParam<FreqParamQuantity>(FREQ1_PARAM + i, 0.f, 1.f, defaultFreq, "Frequency", "Hz");
+			freqParams[i] = configParam<FreqParamQuantity>(FREQ1_PARAM + i, 0.f, 1.f, defaultFreqCoarse, "Frequency", "Hz");
 			configParam(MOD1_PARAM + i, 0.f, 1.f, 0.f, modeNames[i]);
 			configSwitch(VCO_LFO_MODE1_PARAM + i, 0.f, 1.f, 1.f, "Rate Mode", {"LFO", "VCO"});
 			configSwitch(VOCT_FM1_PARAM + i, 0.f, 1.f, 0.f, "FM Type", {"V/OCT", "FM"});
@@ -497,7 +498,8 @@ struct Sena : Module {
 					if (osBufferFM[0][i] > 35.) {
 						// above 35Hz, just leave LED on
 						lights[NUM1_LIGHT + i].setBrightness(1.0);
-					} else {
+					}
+					else {
 						lights[NUM1_LIGHT + i].setBrightnessSmooth(std::max(out[i] / 5.f, 0.f), sampleTimeLights, lambda);
 					}
 				}
@@ -510,16 +512,16 @@ struct Sena : Module {
 
 	void processNoise() {
 		if (outputs[WHITE_OUTPUT].isConnected()) {
-			float white = 0.25 * random::normal();
+			float white = random::normal();
 			outputs[WHITE_OUTPUT].setVoltage(white);
 		}
 
 		if (outputs[PINK_OUTPUT].isConnected() || outputs[BLUE_OUTPUT].isConnected()) {
 			// Pink noise: -3dB/oct
-			float white = 0.25 * random::normal();
+			float white = random::normal();
 
 			float pink = pinkNoiseGenerator.process(white);
-			outputs[PINK_OUTPUT].setVoltage(pink * 0.5);
+			outputs[PINK_OUTPUT].setVoltage(pink * 0.125);
 
 			// Blue noise: 3dB/oct
 			if (outputs[BLUE_OUTPUT].isConnected()) {
@@ -542,6 +544,7 @@ struct Sena : Module {
 		}
 	}
 
+	TuneMode tuneModes[NUM_CHANNELS] = { COARSE, COARSE, COARSE, COARSE }; // default tuning mode is coarse
 	void setupSlowSimdBuffers() {
 
 		// work out which channels use linear FM
@@ -557,6 +560,13 @@ struct Sena : Module {
 			RangeMode rangeMode = static_cast<RangeMode>(params[VCO_LFO_MODE1_PARAM + i].getValue());
 			TuneMode tuneMode = static_cast<TuneMode>(params[FINE1_PARAM + i].getValue());
 
+			// if we've switched into fine tuning mode, reset the frequency pot to the middle of the fine range (C0)
+			if (tuneMode != tuneModes[i] && tuneMode == FINE) {
+				params[FREQ1_PARAM + i].setValue(0.5f); // reset to middle of fine range
+			}
+			// remember the current tuning mode
+			tuneModes[i] = tuneMode;
+
 			// also update UI label details whilst we're here
 			freqParams[i]->rangeMode = rangeMode;
 			freqParams[i]->tuneMode = tuneMode;
@@ -564,6 +574,8 @@ struct Sena : Module {
 			auto [minFreq, maxFreq] = getMinMaxRange(rangeMode, tuneMode);
 			frequencyMins[i] = minFreq;
 			frequencyMaxes[i] = maxFreq;
+
+			getParamQuantity(FREQ1_PARAM + i)->defaultValue = (tuneMode == COARSE) ? defaultFreqCoarse : 0.5f;
 		}
 
 		const float_4 frequencyPots = float_4(
@@ -618,10 +630,10 @@ struct Sena : Module {
 		    inputs[MOD1_INPUT + SQUARE].isConnected()) {
 
 			float_4 modOffsets = float_4(
-								params[MOD1_PARAM + SINE].getValue(),
-								params[MOD1_PARAM + TRIANGLE].getValue(),
-								params[MOD1_PARAM + SAW].getValue(),
-								0.f);
+			                       params[MOD1_PARAM + SINE].getValue(),
+			                       params[MOD1_PARAM + TRIANGLE].getValue(),
+			                       params[MOD1_PARAM + SAW].getValue(),
+			                       0.f);
 			float_4 modScales = float_4(1.f, 1.f, 1.f, params[MOD1_PARAM + SQUARE].getValue());
 
 
@@ -638,10 +650,10 @@ struct Sena : Module {
 		}
 		else {
 			float_4 modPots = float_4(
-					params[MOD1_PARAM + SINE].getValue(),
-					params[MOD1_PARAM + TRIANGLE].getValue(),
-					params[MOD1_PARAM + SAW].getValue(),
-					params[MOD1_PARAM + SQUARE].getValue());
+			                    params[MOD1_PARAM + SINE].getValue(),
+			                    params[MOD1_PARAM + TRIANGLE].getValue(),
+			                    params[MOD1_PARAM + SAW].getValue(),
+			                    params[MOD1_PARAM + SQUARE].getValue());
 
 			std::fill(osBufferMod, &osBufferMod[oversamplingRatio], modPots);
 		}
