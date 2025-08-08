@@ -34,7 +34,7 @@ struct Path : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		configParam(ROUTE_PARAM, 0.f, 1.f, 0.f, "Route");
 		configSwitch(PLUS_MINUS_PARAM, 0.f, 1.f, 0.f, "CV Attenuator Polarity", {"+", "-"});
-		configParam(ROUTE_CV_PARAM, 0.f, 1.f, 1.f, "Route CV");
+		configParam(ROUTE_CV_PARAM, 0.f, 1.f, 0.f, "Route CV", "%", 0.f, 100.f);
 		auto in = configInput(IN_INPUT, "Signal");
 		in->description = "Normalized to 10V";
 		auto routeIn = configInput(ROUTE_INPUT, "Route CV");

@@ -36,7 +36,7 @@ struct Trace : Module {
 
 		configParam(SCAN_PARAM, 0.f, 1.f, 0.f, "Scan");
 		configSwitch(PLUS_MINUS_PARAM, 0.f, 1.f, 0.f, "CV Attenuator Polarity", {"+", "-"});
-		configParam(SCAN_CV_PARAM, 0.f, 1.f, 1.f, "Scan CV", "%", 0.f, 100.f);
+		configParam(SCAN_CV_PARAM, 0.f, 1.f, 0.f, "Scan CV", "%", 0.f, 100.f);
 
 		auto scanIn = configInput(SCAN_INPUT, "Scan");
 		scanIn->description = "Expects 5V peak-to-peak, combines with SCAN slider";
