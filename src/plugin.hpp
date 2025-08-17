@@ -18,8 +18,8 @@ extern Model* modelFuji;
 extern Model* modelSena;
 extern Model* modelHive;
 
-const int lightUpdateRate = 128;
-const float lambda = 15;
+const int lightUpdateRate = 32;
+const float lambda = 30;
 
 enum COLORS {
 	C_WHITE = 0,

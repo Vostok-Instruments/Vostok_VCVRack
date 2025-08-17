@@ -4,6 +4,7 @@
 using simd::float_4;
 using simd::Vector;
 
+
 struct Hive : Module {
 
 	static const int NUM_CHANNELS = 4;
@@ -48,7 +49,7 @@ struct Hive : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		for (int i = 0; i < NUM_CHANNELS; ++i) {
-			configParam(GAIN_PARAM + i, 0.f, 3.f, 1.f, string::f("Ch. %d Gain", i + 1), " dB", -10, 20);
+			configParam(GAIN_PARAM + i, 0.f, 2.818382f, 1.f, string::f("Ch. %d Gain", i + 1), " dB", -10, 20);
 			configParam(PAN_PARAM + i, -1.f, 1.f, 0.f, string::f("Ch. %d Pan", i + 1));
 			configInput(LEFT_INPUT + i, string::f("Ch. %d Left", i + 1));
 			configInput(RIGHT_INPUT + i, string::f("Ch. %d Right", i + 1));
@@ -56,15 +57,12 @@ struct Hive : Module {
 			panCV->description = "5Vp-p bipolar CV for panning, sums with the pan knob";
 		}
 
-		configParam(MASTER_PARAM, 0.f, 1.f, 0.f, "Master Gain");
+		configParam(MASTER_PARAM, 0.f, 1.f, 0.f, "Master Gain", " dB", -10, 20);
 
 		configOutput(LEFT_OUTPUT, "Left");
 		configOutput(RIGHT_OUTPUT, "Right");
 
 		lightDivider.setDivision(lightUpdateRate);
-		leftMeter.lambda = rightMeter.lambda = lambda;
-		leftMeter.mode = rightMeter.mode = dsp::VuMeter2::RMS; // peak mode by default
-
 	}
 
 	void onSampleRateChange() override {
@@ -126,7 +124,7 @@ struct Hive : Module {
 		rightIns *= gains * simd::sqrt(panRight) * panRight;
 
 		// outputs
-		float masterGain = params[MASTER_PARAM].getValue();
+		float masterGain = std::pow(params[MASTER_PARAM].getValue(), 2);
 		float leftSum = masterGain * (leftIns[0] + leftIns[1] + leftIns[2] + leftIns[3]);
 		float rightSum = masterGain * (rightIns[0] + rightIns[1] + rightIns[2] + rightIns[3]);
 
@@ -138,18 +136,20 @@ struct Hive : Module {
 		outputs[LEFT_OUTPUT].setVoltage(leftSum);
 		outputs[RIGHT_OUTPUT].setVoltage(rightSum);
 
+		leftMeter.process(args.sampleTime, std::abs(leftSum / 6.f));
+		rightMeter.process(args.sampleTime, std::abs(rightSum / 6.f));
+
+		float_4 leftsForLights = simd::abs(leftIns / 12.f);
+		float_4 rightsForLights = simd::abs(rightIns / 12.f);
+		for (int i = 0; i < NUM_CHANNELS; ++i) {
+			lights[NUM_LIGHT + i * 2].setBrightnessSmooth(leftsForLights[i], args.sampleTime);
+			lights[NUM_LIGHT + i * 2 + 1].setBrightnessSmooth(rightsForLights[i], args.sampleTime);
+		}
+
 		if (lightDivider.process()) {
 			const float sampleTime = args.sampleTime * lightUpdateRate;
-
-			for (int i = 0; i < NUM_CHANNELS; ++i) {
-				lights[NUM_LIGHT + i * 2].setBrightnessSmooth(leftIns[i] / 10.f, sampleTime, lambda);
-				lights[NUM_LIGHT + i * 2 + 1].setBrightnessSmooth(rightIns[i] / 10.f, sampleTime, lambda);
-			}
-
-			leftMeter.process(sampleTime, leftSum / 6.f);
-			rightMeter.process(sampleTime, rightSum / 6.f);
-			lights[LEFT_LIGHT].setBrightness(leftMeter.getBrightness(-3.0f, 0.f));
-			lights[RIGHT_LIGHT].setBrightness(rightMeter.getBrightness(-3.0f, 0.f));
+			lights[LEFT_LIGHT].setBrightnessSmooth(leftMeter.getBrightness(-3.0f, 0.f), sampleTime);
+			lights[RIGHT_LIGHT].setBrightnessSmooth(rightMeter.getBrightness(-3.0f, 0.f), sampleTime);
 		}
 	}
 
