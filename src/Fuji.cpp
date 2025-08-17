@@ -32,13 +32,20 @@ struct Fuji : Module {
 		LOOP      // Loop
 	};
 
+	const float riseFallMin = std::log10(0.0015f); // 1.5ms
+	const float riseFallMax = std::log10(1.5f);     // 1.5s
+	const float midValue = (riseFallMin + riseFallMax) / 2.f;
 
 	Fuji() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 		for (int i = 0; i < NUM_CHANNELS; i++) {
-			configParam(ATTACK1_PARAM + i, -3.f, 0.f, -1.5f, string::f("Attack Ch. %d", i + 1), " s", 10.f);
-			configParam(DECAY1_PARAM + i, -3.f, 0.f, -1.5f, string::f("Decay Ch. %d", i + 1), " s", 10.f);
-			configSwitch(MODE1_PARAM + i, 0.f, 1.f, 0.f, string::f("Mode Ch. %d", i + 1), {"AD Mode", "Hold Mode"});
+			configParam(ATTACK1_PARAM + i, riseFallMin, riseFallMax, midValue, string::f("Attack Ch. %d", i + 1), " s", 10.f);
+			configParam(DECAY1_PARAM + i, riseFallMin, riseFallMax, midValue, string::f("Decay Ch. %d", i + 1), " s", 10.f);
+			auto modeSwitch = configSwitch(MODE1_PARAM + i, 0.f, 1.f, 0.f, string::f("Mode Ch. %d", i + 1), {"Attack Decay Mode", "Hold Mode"});
+			modeSwitch->description = "In Attack Decay mode, two-stage AD envelope signal every time a Gate \n"
+			                          "or Trigger signal is present at the Gate Input. In Hold mode, the envelope\n"
+			                          "is sustained at its maximum level within a time determined by the Gate length.";
+
 			configSwitch(LOOP1_PARAM + i, 0.f, 1.f, 0.f, string::f("Loop Ch. %d", i + 1), {"One Shot", "Loop"});
 			auto gateInput = configInput(GATE1_INPUT + i, string::f("Gate Ch. %d", i + 1));
 			if (i > 0) {
@@ -48,6 +55,8 @@ struct Fuji : Module {
 		}
 
 		lightDivider.setDivision(lightUpdateRate);
+		// Start at the end of the cycle to ensure firing on the first process call
+		lightDivider.clock = lightDivider.division - 1;
 	}
 
 	dsp::ExponentialSlewLimiter attackSlew[NUM_CHANNELS];
@@ -56,19 +65,27 @@ struct Fuji : Module {
 	dsp::SchmittTrigger loopTrigger[NUM_CHANNELS];
 	dsp::PulseGenerator pulseGen[NUM_CHANNELS];
 	dsp::ClockDivider lightDivider;
+	const float lambdaFuji = 10.f;
 	bool rising[NUM_CHANNELS] = { false, false, false, false, false, false };
 	bool triggerChannels[NUM_CHANNELS] = { true, true, true, true, true, true };
 
 	void process(const ProcessArgs& args) override {
-		const bool updateLEDs = lightDivider.process();
+		const bool doUpdate = lightDivider.process();
 
 		float gateNormalVoltage = 0.f;
 		for (int i = 0; i < NUM_CHANNELS; i++) {
 
-			float attackTime = std::pow(10, params[ATTACK1_PARAM + i].getValue()); 	// range 1ms to 1s
-			float decayTime = std::pow(10, params[DECAY1_PARAM + i].getValue()); 	// range 1ms to 1s
 			const GateMode gateMode = static_cast<GateMode>(params[MODE1_PARAM + i].getValue());
 			const LoopMode loopMode = static_cast<LoopMode>(params[LOOP1_PARAM + i].getValue());
+
+			if (doUpdate) {
+				// attack/decay times are only characteristic - here we scale based on empirical values
+				// to make the times close to desired times.
+				const float scaleFactor = 0.5f;
+				const float attackTime = scaleFactor * std::pow(10, params[ATTACK1_PARAM + i].getValue()); 	// range 1.5ms to 1.5s
+				const float decayTime = scaleFactor * std::pow(10, params[DECAY1_PARAM + i].getValue()); 	// range 1.5ms to 1.5s
+				attackSlew[i].setRiseFallTau(attackTime, decayTime);
+			}
 
 			const float gateInput = inputs[GATE1_INPUT + i].getNormalVoltage(gateNormalVoltage);
 			const bool gateTriggered = gateTrigger[i].process(gateInput);
@@ -94,7 +111,6 @@ struct Fuji : Module {
 			}
 
 			// Gate is high, start attack phase
-			attackSlew[i].setRiseFallTau(attackTime, decayTime);
 
 			float slewSignal = rising[i];
 			if (gateMode == HOLD && loopMode == ONE_SHOT) {
@@ -129,9 +145,11 @@ struct Fuji : Module {
 
 			outputs[OUT1_OUTPUT + i].setVoltage(out);
 
-			if (updateLEDs) {
+			if (doUpdate) {
 				const float sampleTime = args.sampleTime * lightUpdateRate;
-				lights[NUM1_LIGHT + i].setBrightnessSmooth(envelope, sampleTime, lambda);
+				// we don't want flickering at audio rates, but we also don't want LED light on negative bit of the cycle
+				// so can't do abs(envelope) here - use a smoother than usual setting
+				lights[NUM1_LIGHT + i].setBrightnessSmooth(envelope, sampleTime, lambdaFuji);
 			}
 		}
 
@@ -171,8 +189,6 @@ struct FujiWidget : ModuleWidget {
 		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Fuji::NUM1_LIGHT + 3));
 		addChild(createLight<VostokOrangeNumberLed<5>>(mm2px(Vec(31.941, 92.853)), module, Fuji::NUM1_LIGHT + 4));
 		addChild(createLight<VostokOrangeNumberLed<6>>(mm2px(Vec(31.941, 111.296)), module, Fuji::NUM1_LIGHT + 5));
-
-
 	}
 };
 
