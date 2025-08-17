@@ -45,7 +45,7 @@ struct Atlas : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		for (int i = 0; i < NUM_CHANNELS; i++) {
-			configParam(FREQ1_PARAM + i, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), std::log2(ripples::kFreqKnobMax), string::f("Ch. %d frequency", i), " Hz", 2.f);
+			configParam(FREQ1_PARAM + i, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), std::log2(dsp::FREQ_C4), string::f("Ch. %d frequency", i), " Hz", 2.f);
 			configParam(RES1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d Resonance", i + 1));
 			configSwitch(FM_RES_1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d CV Dest.", i + 1), {"Resonance", "FM2"});
 			configSwitch(MODE1_PARAM + i, 0.f, 2.f, 0.f, string::f("Ch. %d Filter Mode", i + 1), {"LP (4-pole)", "HP (2-pole)", "BP (4-pole)"});
@@ -86,6 +86,7 @@ struct Atlas : Module {
 		const bool updateLeds = lightDivider.process();
 
 		float normalInput = 0.f;
+		float_4 outputs_4;
 		for (int i = 0; i < NUM_CHANNELS; i++) {
 
 			frame.res_knob = params[RES1_PARAM + i].getValue();
@@ -103,14 +104,22 @@ struct Atlas : Module {
 
 			const FilterMode mode = static_cast<FilterMode>(params[MODE1_PARAM + i].getValue());
 			// Atlas actually corrects for inverting effect
-			float output = -(mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : frame.hp2));
-			outputs[OUT1_OUTPUT + i].setVoltage(output);
+			outputs_4[i] = -(mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : frame.hp2));
+			outputs[OUT1_OUTPUT + i].setVoltage(outputs_4[i]);
 
 			if (updateLeds) {
 				const float sampleTime = args.sampleTime * lightUpdateRate;
-				lights[NUM1_LIGHT + i].setBrightnessSmooth(std::max(0.f, normalInput / 5.f), sampleTime, lambda);
+				lights[NUM1_LIGHT + i].setBrightnessSmooth(std::abs(normalInput / 5.f), sampleTime);
 			}
 		}
+
+		// Scan output
+		const float scanValue = clamp(params[SCAN_PARAM].getValue() + inputs[SCAN_IN_INPUT].getVoltage() / 10.f, 0.f, 1.f);
+
+		float_4 outGains = gainsForChannels(scanValue);
+		outputs_4 = outputs_4 * outGains;
+		const float scanOut = outputs_4[0] + outputs_4[1] + outputs_4[2] + outputs_4[3];
+		outputs[SCAN_OUT_OUTPUT].setVoltage(scanOut);
 	}
 };
 
