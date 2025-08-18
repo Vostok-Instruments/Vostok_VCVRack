@@ -136,8 +136,8 @@ struct Hive : Module {
 		outputs[LEFT_OUTPUT].setVoltage(leftSum);
 		outputs[RIGHT_OUTPUT].setVoltage(rightSum);
 
-		leftMeter.process(args.sampleTime, std::abs(leftSum / 6.f));
-		rightMeter.process(args.sampleTime, std::abs(rightSum / 6.f));
+		leftMeter.process(args.sampleTime, std::abs(leftSum / 8.f));
+		rightMeter.process(args.sampleTime, std::abs(rightSum / 8.f));
 
 		float_4 leftsForLights = simd::abs(leftIns / 12.f);
 		float_4 rightsForLights = simd::abs(rightIns / 12.f);
