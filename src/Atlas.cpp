@@ -40,6 +40,7 @@ struct Atlas : Module {
 
 	ripples::RipplesEngine engines[NUM_CHANNELS];
 	dsp::ClockDivider lightDivider;
+	bool compensate = false;
 
 	Atlas() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -81,30 +82,62 @@ struct Atlas : Module {
 		// Reuse the same frame object for multiple engines because some params aren't touched.
 		ripples::RipplesEngine::Frame frame;
 		frame.fm_knob = 1.;
-		frame.gain_cv_present = false;
 
 		const bool updateLeds = lightDivider.process();
+
+		const float_4 resonanceKnob = float_4(
+			params[RES1_PARAM + 0].getValue(),
+			params[RES1_PARAM + 1].getValue(),
+			params[RES1_PARAM + 2].getValue(),
+			params[RES1_PARAM + 3].getValue()
+		);
+		const float_4 resonanceCv = simd::clamp(float_4(
+		    inputs[FM_RES1_INPUT + 0].getVoltage(),
+		    inputs[FM_RES1_INPUT + 1].getVoltage(),
+		    inputs[FM_RES1_INPUT + 2].getVoltage(),
+		    inputs[FM_RES1_INPUT + 3].getVoltage()) / 5.f, -1.f, +1.f);
+		const float_4 cvDestinations = float_4(
+			params[FM_RES_1_PARAM + 0].getValue(),
+			params[FM_RES_1_PARAM + 1].getValue(),
+			params[FM_RES_1_PARAM + 2].getValue(),
+			params[FM_RES_1_PARAM + 3].getValue()
+		);
+
+		// max resonance is about 80% of the ripples model
+		const float_4 resonances = clamp(0.8 * resonanceKnob + 0.9 * simd::ifelse(cvDestinations < 0.5, resonanceCv, 0.f), 0.f, 0.9f);
+
+		const float_4 frequencies(
+		  params[FREQ1_PARAM + 0].getValue(),
+		  params[FREQ1_PARAM + 1].getValue(),
+		  params[FREQ1_PARAM + 2].getValue(),
+		  params[FREQ1_PARAM + 3].getValue()
+		);
+		const float_4 frequenciesScaled = simd::rescale(frequencies, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), 0.f, 1.f);
+
+		// https://www.desmos.com/calculator/gkyn81l5vv
+		float_4 gainCompensation = (compensate) ? 1.0 / (0.4 + 0.6 * simd::exp(-5.5 * resonances)) : 1.f;
+
 
 		float normalInput = 0.f;
 		float_4 outputs_4;
 		for (int i = 0; i < NUM_CHANNELS; i++) {
-
-			frame.res_knob = params[RES1_PARAM + i].getValue();
-			frame.freq_knob = rescale(params[FREQ1_PARAM + i].getValue(), std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), 0.f, 1.f);
-
 			const CVDest cvDest = static_cast<CVDest>(params[FM_RES_1_PARAM + i].getValue());
-			frame.res_cv = (cvDest == RES) ? inputs[FM_RES1_INPUT + i].getVoltage() : 0.f;
+
+			frame.res_knob = resonances[i];
+			frame.freq_knob = frequenciesScaled[i];
+
 			frame.fm_cv = (cvDest == FM2) ? inputs[FM_RES1_INPUT + i].getVoltage() : 0.f;
 			frame.freq_cv = inputs[FREQ1_INPUT + i].getVoltage();
 
-			frame.input = inputs[IN1_INPUT + i].isConnected() ? inputs[IN1_INPUT + i].getVoltageSum() : normalInput;
+			frame.input = (inputs[IN1_INPUT + i].isConnected() ? inputs[IN1_INPUT + i].getVoltageSum() : normalInput);
 			normalInput = frame.input;
 
 			engines[i].process(frame);
 
 			const FilterMode mode = static_cast<FilterMode>(params[MODE1_PARAM + i].getValue());
 			// Atlas actually corrects for inverting effect
-			outputs_4[i] = -(mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : frame.hp2));
+			outputs_4[i] = -(mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : 0.5 * frame.hp2)) * gainCompensation[i];
+
 			outputs[OUT1_OUTPUT + i].setVoltage(outputs_4[i]);
 
 			if (updateLeds) {
@@ -120,6 +153,20 @@ struct Atlas : Module {
 		outputs_4 = outputs_4 * outGains;
 		const float scanOut = outputs_4[0] + outputs_4[1] + outputs_4[2] + outputs_4[3];
 		outputs[SCAN_OUT_OUTPUT].setVoltage(scanOut);
+	}
+
+	json_t* dataToJson() override {
+		json_t* rootJ = json_object();
+		json_object_set_new(rootJ, "gainCompensation", json_boolean(compensate));
+
+		return rootJ;
+	}
+
+	void dataFromJson(json_t* rootJ) override {
+		json_t* jCompensate = json_object_get(rootJ, "gainCompensation");
+		if (jCompensate) {
+			compensate = json_boolean_value(jCompensate);
+		}
 	}
 };
 
@@ -160,6 +207,16 @@ struct AtlasWidget : ModuleWidget {
 		addChild(createLight<VostokOrangeNumberLed<3>>(mm2px(Vec(41.074, 66.014)), module, Atlas::NUM1_LIGHT + 2));
 		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(41.074, 89.511)), module, Atlas::NUM1_LIGHT + 3));
 
+	}
+
+
+	void appendContextMenu(Menu* menu) override {
+		Atlas* module = dynamic_cast<Atlas*>(this->module);
+		assert(module);
+
+		menu->addChild(new MenuSeparator());
+
+		menu->addChild(createBoolPtrMenuItem("Gain compensation", "", &module->compensate));
 	}
 };
 

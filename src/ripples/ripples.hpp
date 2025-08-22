@@ -128,8 +128,8 @@ public:
         float freq_cv;
         float fm_cv;
         float input;
-        float gain_cv;
-        bool gain_cv_present;
+        //float gain_cv;
+        //bool gain_cv_present;
 
         // Outputs (modified)
         float hp2;
@@ -202,7 +202,7 @@ public:
         for (int i = 0; i < oversampling_factor; i++)
         {
             inputs = aa_filter_.ProcessUp((i == 0) ? inputs : 0.f);
-            outputs = CoreProcess(inputs, timestep, frame.gain_cv_present);
+            outputs = CoreProcess(inputs, timestep);
             outputs = aa_filter_.ProcessDown(outputs);
         }
 
@@ -222,7 +222,7 @@ protected:
     // High-rate processing core
     // inputs: vector containing (input, v_oct, i_reso, i_vca)
     // returns: vector containing (bp2, lp2, lp4, lp4vca)
-    simd::float_4 CoreProcess(simd::float_4 inputs, float timestep, bool gainCvPresent)
+    simd::float_4 CoreProcess(simd::float_4 inputs, float timestep)
     {
         rc_filters_.process(inputs);
 
