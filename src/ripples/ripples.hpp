@@ -130,6 +130,7 @@ public:
         float input;
         //float gain_cv;
         //bool gain_cv_present;
+        bool add_lowend;
 
         // Outputs (modified)
         float hp2;
@@ -202,7 +203,8 @@ public:
         for (int i = 0; i < oversampling_factor; i++)
         {
             inputs = aa_filter_.ProcessUp((i == 0) ? inputs : 0.f);
-            outputs = CoreProcess(inputs, timestep);
+            outputs = CoreProcess(inputs, timestep, frame.res_knob, frame.add_lowend);  
+
             outputs = aa_filter_.ProcessDown(outputs);
         }
 
@@ -222,7 +224,7 @@ protected:
     // High-rate processing core
     // inputs: vector containing (input, v_oct, i_reso, i_vca)
     // returns: vector containing (bp2, lp2, lp4, lp4vca)
-    simd::float_4 CoreProcess(simd::float_4 inputs, float timestep)
+    simd::float_4 CoreProcess(simd::float_4 inputs, float timestep, float res_knob, bool add_lowend)
     {
         rc_filters_.process(inputs);
 
@@ -293,16 +295,23 @@ protected:
         float lp3 = cell_voltage_[2];
         float lp4 = cell_voltage_[3];
 
-        float bp4 = (lp2 + 2*lp3 + lp4) * kBP4Gain;
+        float bp2 = (lp1 + lp2);
+        float bp4 = (lp2 + 2*lp3 + lp4);
 
         // high pass calculation
         float vp = feedforward * kFeedforwardGain;
         float vn = cell_voltage_[3] * kFeedbackGain;
         float res = kFilterCellR * OTAVCA(vp, vn, i_reso);
         float filterIn = inputs[0] * kFilterInputGain + res;
-        float hp2 = (filterIn + 2*lp1 + lp2)*kHP2Gain;
-
-         return simd::float_4(hp2, bp4, lp4*kLP4Gain, 0.f);
+        float hp1 = (filterIn + lp1);
+        float hp2 = (filterIn + 2*lp1 + lp2);
+        
+        if (add_lowend) {
+            // add lowend shelving to hp2 output
+            hp2 += res_knob * lp1;
+        }
+        
+        return simd::float_4(hp2*kHP2Gain, bp4*kBP4Gain, lp4*kLP4Gain, 0.f);
     }
 
     // Solves an ODE system using the 2nd order Runge-Kutta method

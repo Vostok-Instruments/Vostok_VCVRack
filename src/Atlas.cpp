@@ -41,6 +41,7 @@ struct Atlas : Module {
 	ripples::RipplesEngine engines[NUM_CHANNELS];
 	dsp::ClockDivider lightDivider;
 	bool compensate = false;
+	bool add_lowend = true;
 
 	Atlas() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -82,6 +83,7 @@ struct Atlas : Module {
 		// Reuse the same frame object for multiple engines because some params aren't touched.
 		ripples::RipplesEngine::Frame frame;
 		frame.fm_knob = 1.;
+		frame.add_lowend = add_lowend;
 
 		const bool updateLeds = lightDivider.process();
 
@@ -115,13 +117,14 @@ struct Atlas : Module {
 		const float_4 frequenciesScaled = simd::rescale(frequencies, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), 0.f, 1.f);
 
 		// https://www.desmos.com/calculator/gkyn81l5vv
-		float_4 gainCompensation = (compensate) ? 1.0 / (0.4 + 0.6 * simd::exp(-5.5 * resonances)) : 1.f;
+		float_4 gainCompensation = (compensate) ? 1.0 / (0.5 + 0.5 * simd::exp(-7 * resonances)) : 1.f;
 
 
 		float normalInput = 0.f;
 		float_4 outputs_4;
 		for (int i = 0; i < NUM_CHANNELS; i++) {
 			const CVDest cvDest = static_cast<CVDest>(params[FM_RES_1_PARAM + i].getValue());
+			const FilterMode mode = static_cast<FilterMode>(params[MODE1_PARAM + i].getValue());
 
 			frame.res_knob = resonances[i];
 			frame.freq_knob = frequenciesScaled[i];
@@ -134,7 +137,11 @@ struct Atlas : Module {
 
 			engines[i].process(frame);
 
-			const FilterMode mode = static_cast<FilterMode>(params[MODE1_PARAM + i].getValue());
+			if (mode == HP) {
+				// HP doesn't need gain compensation
+				gainCompensation[i] = 1.f;
+			}
+
 			// Atlas actually corrects for inverting effect
 			outputs_4[i] = -(mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : 0.5 * frame.hp2)) * gainCompensation[i];
 
@@ -158,6 +165,7 @@ struct Atlas : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "gainCompensation", json_boolean(compensate));
+		json_object_set_new(rootJ, "addLowend", json_boolean(add_lowend));
 
 		return rootJ;
 	}
@@ -166,6 +174,11 @@ struct Atlas : Module {
 		json_t* jCompensate = json_object_get(rootJ, "gainCompensation");
 		if (jCompensate) {
 			compensate = json_boolean_value(jCompensate);
+		}
+
+		json_t* jAddLowend = json_object_get(rootJ, "addLowend");
+		if (jAddLowend) {
+			add_lowend = json_boolean_value(jAddLowend);	
 		}
 	}
 };
@@ -216,7 +229,8 @@ struct AtlasWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator());
 
-		menu->addChild(createBoolPtrMenuItem("Gain compensation", "", &module->compensate));
+		menu->addChild(createBoolPtrMenuItem("Gain compensation (LP/BP only)", "", &module->compensate));
+		menu->addChild(createBoolPtrMenuItem("Add lowend to HP", "", &module->add_lowend));
 	}
 };
 
