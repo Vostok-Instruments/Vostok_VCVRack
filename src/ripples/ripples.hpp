@@ -295,7 +295,6 @@ protected:
         float lp3 = cell_voltage_[2];
         float lp4 = cell_voltage_[3];
 
-        float bp2 = (lp1 + lp2);
         float bp4 = (lp2 + 2*lp3 + lp4);
 
         // high pass calculation
@@ -303,11 +302,10 @@ protected:
         float vn = cell_voltage_[3] * kFeedbackGain;
         float res = kFilterCellR * OTAVCA(vp, vn, i_reso);
         float filterIn = inputs[0] * kFilterInputGain + res;
-        float hp1 = (filterIn + lp1);
         float hp2 = (filterIn + 2*lp1 + lp2);
         
         if (add_lowend) {
-            // add lowend shelving to hp2 output
+            // add lowend shelving to hp2 output, proportional to resonance knob
             hp2 += res_knob * lp1;
         }
         

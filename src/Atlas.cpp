@@ -40,7 +40,7 @@ struct Atlas : Module {
 
 	ripples::RipplesEngine engines[NUM_CHANNELS];
 	dsp::ClockDivider lightDivider;
-	bool compensate = false;
+	bool compensate = true;
 	bool add_lowend = true;
 
 	Atlas() {
@@ -49,7 +49,7 @@ struct Atlas : Module {
 		for (int i = 0; i < NUM_CHANNELS; i++) {
 			configParam(FREQ1_PARAM + i, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), std::log2(dsp::FREQ_C4), string::f("Ch. %d frequency", i), " Hz", 2.f);
 			configParam(RES1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d Resonance", i + 1));
-			configSwitch(FM_RES_1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d CV Dest.", i + 1), {"Resonance", "FM2"});
+			configSwitch(FM_RES_1_PARAM + i, 0.f, 1.f, 1.f, string::f("Ch. %d CV Dest.", i + 1), {"Resonance", "FM2"});
 			configSwitch(MODE1_PARAM + i, 0.f, 2.f, 0.f, string::f("Ch. %d Filter Mode", i + 1), {"LP (4-pole)", "HP (2-pole)", "BP (4-pole)"});
 			configInput(IN1_INPUT + i, string::f("Ch. %d", i + 1));
 			configInput(FREQ1_INPUT + i, string::f("Ch. %d Freq", i + 1));
