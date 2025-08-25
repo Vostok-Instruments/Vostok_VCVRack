@@ -38,11 +38,18 @@ struct Hive : Module {
 		NUM_SIDES = 2
 	};
 
+	struct ExpanderMessage {
+		float leftSum = 0.f;
+		float rightSum = 0.f;
+		bool chainActive = false;
+	};
+	ExpanderMessage expanderMessage[2];
+
 	chowdsp::TBiquadFilter<float_4> dcBlockFilter[NUM_SIDES];
 	bool clipOutput = true;
 	bool acCoupling = true;
 	dsp::ClockDivider lightDivider;
-
+	bool expanderActive = false;
 	dsp::VuMeter2 leftMeter, rightMeter;
 
 	Hive() {
@@ -62,6 +69,9 @@ struct Hive : Module {
 		configOutput(LEFT_OUTPUT, "Left");
 		configOutput(RIGHT_OUTPUT, "Right");
 
+		getLeftExpander().producerMessage = &expanderMessage[0];
+		getLeftExpander().consumerMessage = &expanderMessage[1];
+
 		lightDivider.setDivision(lightUpdateRate);
 	}
 
@@ -78,6 +88,21 @@ struct Hive : Module {
 	}
 
 	void process(const ProcessArgs& args) override {
+
+		// Get input from left expander if present
+		float expanderLeftSum = 0.f;
+		float expanderRightSum = 0.f;
+
+		const ExpanderMessage* leftExpanderData = (ExpanderMessage*) getLeftExpander().consumerMessage;
+		Module* leftModule = getLeftExpander().module;
+		if (leftModule && leftModule->getModel() == modelHive && leftExpanderData) {
+			expanderLeftSum = leftExpanderData->leftSum;
+			expanderRightSum = leftExpanderData->rightSum;
+			expanderActive = leftExpanderData->chainActive;
+		}
+		else {
+			expanderActive = false;
+		}
 
 		float_4 leftIns = float_4(
 		                    inputs[LEFT_INPUT + 0].getVoltage(),
@@ -125,8 +150,8 @@ struct Hive : Module {
 
 		// outputs
 		float masterGain = std::pow(params[MASTER_PARAM].getValue(), 2);
-		float leftSum = masterGain * (leftIns[0] + leftIns[1] + leftIns[2] + leftIns[3]);
-		float rightSum = masterGain * (rightIns[0] + rightIns[1] + rightIns[2] + rightIns[3]);
+		float leftSum = masterGain * (leftIns[0] + leftIns[1] + leftIns[2] + leftIns[3]) + expanderLeftSum;
+		float rightSum = masterGain * (rightIns[0] + rightIns[1] + rightIns[2] + rightIns[3]) + expanderRightSum;
 
 		if (clipOutput) {
 			leftSum = clamp(leftSum, -10.f, 10.f);
@@ -150,6 +175,23 @@ struct Hive : Module {
 			const float sampleTime = args.sampleTime * lightUpdateRate;
 			lights[LEFT_LIGHT].setBrightnessSmooth(leftMeter.getBrightness(-3.0f, 0.f), sampleTime);
 			lights[RIGHT_LIGHT].setBrightnessSmooth(rightMeter.getBrightness(-3.0f, 0.f), sampleTime);
+		}
+
+		// Send output to right expander
+		Module* rightModule = getRightExpander().module;
+		if (rightModule && rightModule->getModel() == modelHive) {
+			ExpanderMessage* expanderMessage = (ExpanderMessage*) rightModule->getLeftExpander().producerMessage;
+
+			const bool chainActive = !outputs[LEFT_OUTPUT].isConnected() && !outputs[RIGHT_OUTPUT].isConnected();
+			// it has to be already active, and not patched out
+			expanderActive = expanderActive && chainActive;
+
+			// we only send the sum if outputs are not connected 
+			expanderMessage->leftSum = chainActive ? leftSum : 0.f;
+			expanderMessage->rightSum = chainActive ? rightSum : 0.f;
+			expanderMessage->chainActive = chainActive;
+
+			rightModule->getLeftExpander().requestMessageFlip();
 		}
 	}
 
@@ -223,6 +265,11 @@ struct HiveWidget : ModuleWidget {
 
 		menu->addChild(createBoolPtrMenuItem("AC coupling", "", &hive->acCoupling));
 		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &hive->clipOutput));
+		// label to indicate expander chaining
+		if (hive->expanderActive) {
+			menu->addChild(createMenuLabel(string::f("Chained to Hive output on left")));
+		}
+
 	}
 };
 
