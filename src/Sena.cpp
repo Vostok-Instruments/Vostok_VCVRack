@@ -228,8 +228,8 @@ struct Sena : Module {
 	chowdsp::BiquadFilter noiseDcBlockFilter;
 	chowdsp::TBiquadFilter<float_4> fmDcBlockFilter;
 
-	const std::string modeNames[4] = { "Fold", "Shape", "Phase", "PWM" };
-	const std::string channelNames[4] = { "Sine", "Triangle", "Saw", "Square" };
+	const std::array<std::string, 4> modeNames = { "Fold", "Shape", "Phase", "PWM" };
+	const std::array<std::string, 4> channelNames = { "Sine", "Triangle", "Saw", "Square" };
 
 	// VCO mode ranges
 	constexpr static float kVcoFreqKnobMinCoarse = 15.f; // min frequency knob value
@@ -296,9 +296,9 @@ struct Sena : Module {
 			configSwitch(VCO_LFO_MODE1_PARAM + i, 0.f, 1.f, 1.f, "Rate Mode", {"LFO", "VCO"});
 			configSwitch(VOCT_FM1_PARAM + i, 0.f, 1.f, 0.f, "FM Type", {"V/OCT", "FM"});
 			configSwitch(FINE1_PARAM + i, 0.f, 1.f, 0.f, "Tuning", {"Coarse", "Fine"});
-			configInput(VOCT1_INPUT + i, string::f("%s v/oct", channelNames[i]));
-			configInput(MOD1_INPUT + i, string::f("%s CV", modeNames[i]));
-			configOutput(OUT1_OUTPUT + i, string::f("%s", channelNames[i]));
+			configInput(VOCT1_INPUT + i, string::f("%s v/oct", channelNames[i].c_str()));
+			configInput(MOD1_INPUT + i, string::f("%s CV", modeNames[i].c_str()));
+			configOutput(OUT1_OUTPUT + i, string::f("%s", channelNames[i].c_str()));
 		}
 
 		configOutput(WHITE_OUTPUT, "White Noise");
