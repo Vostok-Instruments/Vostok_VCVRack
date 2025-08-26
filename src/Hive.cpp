@@ -150,8 +150,8 @@ struct Hive : Module {
 
 		// outputs
 		float masterGain = std::pow(params[MASTER_PARAM].getValue(), 2);
-		float leftSum = masterGain * (leftIns[0] + leftIns[1] + leftIns[2] + leftIns[3]) + expanderLeftSum;
-		float rightSum = masterGain * (rightIns[0] + rightIns[1] + rightIns[2] + rightIns[3]) + expanderRightSum;
+		float leftSum = masterGain * (leftIns[0] + leftIns[1] + leftIns[2] + leftIns[3] + expanderLeftSum);
+		float rightSum = masterGain * (rightIns[0] + rightIns[1] + rightIns[2] + rightIns[3] + expanderRightSum);
 
 		if (clipOutput) {
 			leftSum = clamp(leftSum, -10.f, 10.f);

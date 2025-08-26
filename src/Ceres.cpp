@@ -1,4 +1,5 @@
 #include "plugin.hpp"
+#include <array>
 
 
 struct Ceres : Module {

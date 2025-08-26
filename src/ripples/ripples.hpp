@@ -119,24 +119,24 @@ public:
     struct Frame
     {
         // Parameters
-        float res_knob;     //  0 to 1 linear
-        float freq_knob;    //  0 to 1 linear
-        float fm_knob;      // -1 to 1 linear
+        float res_knob = 0.f;     //  0 to 1 linear
+        float freq_knob = 0.f;    //  0 to 1 linear
+        float fm_knob = 0.f;      // -1 to 1 linear
 
         // Inputs
-        float res_cv;
-        float freq_cv;
-        float fm_cv;
-        float input;
+        float res_cv = 0.f;
+        float freq_cv = 0.f;
+        float fm_cv = 0.f;
+        float input = 0.f;
         //float gain_cv;
         //bool gain_cv_present;
-        bool add_lowend;
+        bool add_lowend = true;
 
         // Outputs (modified)
-        float hp2;
-        float bp4;
-        float lp4;
-        float unused; 
+        float hp2 = 0.f;
+        float bp4 = 0.f;
+        float lp4 = 0.f;
+        float unused = 0.f;
     };
 
     RipplesEngine()
