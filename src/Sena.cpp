@@ -1,6 +1,6 @@
 #include "plugin.hpp"
 #include "ChowDSP.hpp"
-
+#include <array>
 
 using simd::float_4;
 using simd::Vector;

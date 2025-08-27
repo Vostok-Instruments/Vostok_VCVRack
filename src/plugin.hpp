@@ -19,7 +19,7 @@ extern Model* modelSena;
 extern Model* modelHive;
 
 const int lightUpdateRate = 32;
-const float lambda = 30;
+const float lambda = 15.f;
 
 enum COLORS {
 	C_WHITE = 0,
@@ -311,17 +311,9 @@ struct CKSSNarrow : app::SvgSwitch {
 };
 
 // const float centres[4] = {0.0, 1.45, 2.9, 4.35};  	// measured values
-static const float_4 crossfaderCentres = simd::float_4(0.5f, 0.5f + 4.0f / 3.0f, 0.5f + 2.f * 4.0f / 3.f, 4.5);  	// values adjusted for symmetry etc
-static const float_4 gains = float_4(0.89f, 0.865f, 0.865f, 0.89f);
-static const float_4 crossfaderMins = float_4(0.0f, -10, -10, -10);
-static const float_4 crossfaderMaxs = float_4(+10, +10, +10, 0.0f);
+const float_4 crossfaderCentres = simd::float_4(0.5f, 0.5f + 4.0f / 3.0f, 0.5f + 2.f * 4.0f / 3.f, 4.5);  	// values adjusted for symmetry etc
+const float_4 gains = float_4(0.89f, 0.865f, 0.865f, 0.89f);
+const float_4 crossfaderMins = float_4(0.0f, -10, -10, -10);
+const float_4 crossfaderMaxs = float_4(+10, +10, +10, 0.0f);
 
-static float_4 gainsForChannels(float routeValue) {
-	float_4 routeValueForChannel = (routeValue - crossfaderCentres / 5.f);
-	// channels 0 and 3 are special cases
-	routeValueForChannel = simd::clamp(routeValueForChannel, crossfaderMins, crossfaderMaxs);
-	// abs because we have a cubic
-	routeValueForChannel = simd::abs(routeValueForChannel);
-
-	return gains * simd::pow(2.0f, -routeValueForChannel * routeValueForChannel * routeValueForChannel * 290.f);
-}
+float_4 gainsForChannels(float routeValue);
