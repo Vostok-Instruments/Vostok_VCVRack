@@ -43,6 +43,13 @@ struct Atlas : Module {
 	bool compensate = true;
 	bool add_lowend = true;
 
+	// not currently used, but future-proofing in case we improve the filter model
+	enum FilterSimulationType {
+		HEURISTIC, 
+		CIRCUIT_BASED
+	};
+	FilterSimulationType filterSimulationType = HEURISTIC;
+
 	Atlas() {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
@@ -58,6 +65,7 @@ struct Atlas : Module {
 		}
 
 		configParam(SCAN_PARAM, 0.f, 1.f, 0.f, "Scan");
+		configInput(SCAN_IN_INPUT, "Scan CV");
 		configOutput(SCAN_OUT_OUTPUT, "Scan");
 
 		lightDivider.setDivision(lightUpdateRate);
@@ -120,7 +128,7 @@ struct Atlas : Module {
 		float_4 gainCompensation = (compensate) ? 1.0 / (0.5 + 0.5 * simd::exp(-7 * resonances)) : 1.f;
 
 
-		float normalInput = 0.f;
+		float normalInput = 0.f, normalFreqInput = 0.f;
 		float_4 outputs_4;
 		for (int i = 0; i < NUM_CHANNELS; i++) {
 			const CVDest cvDest = static_cast<CVDest>(params[FM_RES_1_PARAM + i].getValue());
@@ -130,7 +138,8 @@ struct Atlas : Module {
 			frame.freq_knob = frequenciesScaled[i];
 
 			frame.fm_cv = (cvDest == FM2) ? inputs[FM_RES1_INPUT + i].getVoltage() : 0.f;
-			frame.freq_cv = inputs[FREQ1_INPUT + i].getVoltage();
+			frame.freq_cv = inputs[FREQ1_INPUT + i].getNormalVoltage(normalFreqInput);
+			normalFreqInput = frame.freq_cv;
 
 			frame.input = (inputs[IN1_INPUT + i].isConnected() ? inputs[IN1_INPUT + i].getVoltageSum() : normalInput);
 			normalInput = frame.input;
@@ -149,7 +158,7 @@ struct Atlas : Module {
 
 			if (updateLeds) {
 				const float sampleTime = args.sampleTime * lightUpdateRate;
-				lights[NUM1_LIGHT + i].setBrightnessSmooth(std::abs(normalInput / 5.f), sampleTime);
+				lights[NUM1_LIGHT + i].setBrightnessSmooth(std::abs(normalInput / 5.f), sampleTime, lambda);
 			}
 		}
 
@@ -166,6 +175,7 @@ struct Atlas : Module {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "gainCompensation", json_boolean(compensate));
 		json_object_set_new(rootJ, "addLowend", json_boolean(add_lowend));
+		json_object_set_new(rootJ, "filterSimulationType", json_integer(static_cast<int>(filterSimulationType)));
 
 		return rootJ;
 	}
@@ -179,6 +189,11 @@ struct Atlas : Module {
 		json_t* jAddLowend = json_object_get(rootJ, "addLowend");
 		if (jAddLowend) {
 			add_lowend = json_boolean_value(jAddLowend);	
+		}
+
+		json_t* jFilterSimulationType = json_object_get(rootJ, "filterSimulationType");
+		if (jFilterSimulationType) {
+			filterSimulationType = static_cast<FilterSimulationType>(json_integer_value(jFilterSimulationType));
 		}
 	}
 };
@@ -227,10 +242,11 @@ struct AtlasWidget : ModuleWidget {
 		Atlas* module = dynamic_cast<Atlas*>(this->module);
 		assert(module);
 
-		menu->addChild(new MenuSeparator());
-
-		menu->addChild(createBoolPtrMenuItem("Gain compensation (LP/BP only)", "", &module->compensate));
-		menu->addChild(createBoolPtrMenuItem("Add lowend to HP", "", &module->add_lowend));
+		// debug options only, don't expose to users yet
+		// menu->addChild(new MenuSeparator());
+		// menu->addChild(createBoolPtrMenuItem("Gain compensation (LP/BP only)", "", &module->compensate));
+		// menu->addChild(createBoolPtrMenuItem("Add lowend to HP", "", &module->add_lowend));
+		// menu->addChild(createIndexPtrSubmenuItem("Filter simulation type", {"Heuristic", "Circuit based"}, &module->filterSimulationType));
 	}
 };
 
