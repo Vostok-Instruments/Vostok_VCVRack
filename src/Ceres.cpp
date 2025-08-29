@@ -66,6 +66,10 @@ struct Ceres : Module {
 			}
 		}
 
+		if (clipOutput) {
+			mix = clip4(mix);
+		}
+
 		// channel 6 is always the mix output
 		outputs[OUT1_OUTPUT + 5].setVoltage(mix);
 	}
@@ -120,7 +124,12 @@ struct CeresWidget : ModuleWidget {
 	void appendContextMenu(Menu* menu) override {
 		Ceres* ceres = dynamic_cast<Ceres*>(module);
 		assert(ceres);
-		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &ceres->clipOutput));
+
+		menu->addChild(new MenuSeparator());
+		menu->addChild(createSubmenuItem("Hardware compatibility", "",
+		[ = ](Menu * menu) {
+			menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &ceres->clipOutput));
+		}));
 	}
 };
 

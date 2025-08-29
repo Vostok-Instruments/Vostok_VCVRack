@@ -113,6 +113,8 @@ static const float kVtoICollectorVSat = -10.f;
 // Opamp saturation voltage
 static const float kOpampSatV = 10.6f;
 
+
+
 class RipplesEngine
 {
 public:
@@ -130,7 +132,9 @@ public:
         float input = 0.f;
         //float gain_cv;
         //bool gain_cv_present;
-        bool add_lowend = true;
+        bool addLowend = true;
+        bool gainCompensation = true;
+        bool clipOutputs = true;
 
         // Outputs (modified)
         float hp2 = 0.f;
@@ -200,11 +204,23 @@ public:
         inputs *= oversampling_factor;
         simd::float_4 outputs;
 
+        // apply heuristic gain compensation to keep level consistent across resonance settings
+        // https://www.desmos.com/calculator/gkyn81l5vv
+        float gainCompensation = (frame.gainCompensation) ? 1.0 / (0.5 + 0.5 * std::exp(-7 * frame.res_knob)) : 1.f;
+        // doesn't affect HP output though
+        float_4 gainsCompensation = simd::float_4(1.0, gainCompensation, gainCompensation, 1.0);
+
         for (int i = 0; i < oversampling_factor; i++)
         {
             inputs = aa_filter_.ProcessUp((i == 0) ? inputs : 0.f);
-            outputs = CoreProcess(inputs, timestep, frame.res_knob, frame.add_lowend);  
+            outputs = CoreProcess(inputs, timestep, frame.res_knob, frame.addLowend);  
+            outputs *= gainsCompensation;
 
+            if (frame.clipOutputs) {
+                // optionall soft-clip at +-10V
+                outputs = clip4(outputs);
+            }
+            
             outputs = aa_filter_.ProcessDown(outputs);
         }
 
@@ -224,7 +240,7 @@ protected:
     // High-rate processing core
     // inputs: vector containing (input, v_oct, i_reso, i_vca)
     // returns: vector containing (bp2, lp2, lp4, lp4vca)
-    simd::float_4 CoreProcess(simd::float_4 inputs, float timestep, float res_knob, bool add_lowend)
+    simd::float_4 CoreProcess(simd::float_4 inputs, float timestep, float res_knob, bool addLowend)
     {
         rc_filters_.process(inputs);
 
@@ -304,7 +320,7 @@ protected:
         float filterIn = inputs[0] * kFilterInputGain + res;
         float hp2 = (filterIn + 2*lp1 + lp2);
         
-        if (add_lowend) {
+        if (addLowend) {
             // add lowend shelving to hp2 output, proportional to resonance knob
             hp2 += res_knob * lp1;
         }

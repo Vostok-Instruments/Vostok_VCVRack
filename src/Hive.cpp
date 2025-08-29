@@ -154,8 +154,8 @@ struct Hive : Module {
 		float rightSum = masterGain * (rightIns[0] + rightIns[1] + rightIns[2] + rightIns[3] + expanderRightSum);
 
 		if (clipOutput) {
-			leftSum = clamp(leftSum, -10.f, 10.f);
-			rightSum = clamp(rightSum, -10.f, 10.f);
+			leftSum = clip4(leftSum);
+			rightSum = clip4(rightSum);
 		}
 
 		outputs[LEFT_OUTPUT].setVoltage(leftSum);
@@ -186,7 +186,7 @@ struct Hive : Module {
 			// it has to be already active, and not patched out
 			expanderActive = expanderActive && chainActive;
 
-			// we only send the sum if outputs are not connected 
+			// we only send the sum if outputs are not connected
 			expanderMessage->leftSum = chainActive ? leftSum : 0.f;
 			expanderMessage->rightSum = chainActive ? rightSum : 0.f;
 			expanderMessage->chainActive = chainActive;
@@ -263,8 +263,13 @@ struct HiveWidget : ModuleWidget {
 
 		menu->addChild(new MenuSeparator());
 
-		menu->addChild(createBoolPtrMenuItem("AC coupling", "", &hive->acCoupling));
-		menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &hive->clipOutput));
+		menu->addChild(new MenuSeparator());
+		menu->addChild(createSubmenuItem("Hardware compatibility", "",
+		[ = ](Menu * menu) {
+			menu->addChild(createBoolPtrMenuItem("AC coupling", "", &hive->acCoupling));
+			menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &hive->clipOutput));
+		}));
+
 		// label to indicate expander chaining
 		if (hive->expanderActive) {
 			menu->addChild(createMenuLabel(string::f("Chained to Hive output on left")));

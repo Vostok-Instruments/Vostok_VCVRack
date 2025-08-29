@@ -41,7 +41,8 @@ struct Atlas : Module {
 	ripples::RipplesEngine engines[NUM_CHANNELS];
 	dsp::ClockDivider lightDivider;
 	bool compensate = true;
-	bool add_lowend = true;
+	bool addLowend = true;
+	bool clipOutput = true;
 
 	// not currently used, but future-proofing in case we improve the filter model
 	enum FilterSimulationType {
@@ -91,7 +92,8 @@ struct Atlas : Module {
 		// Reuse the same frame object for multiple engines because some params aren't touched.
 		ripples::RipplesEngine::Frame frame;
 		frame.fm_knob = 1.;
-		frame.add_lowend = add_lowend;
+		frame.addLowend = addLowend;
+		frame.clipOutputs = clipOutput;
 
 		const bool updateLeds = lightDivider.process();
 
@@ -124,10 +126,6 @@ struct Atlas : Module {
 		);
 		const float_4 frequenciesScaled = simd::rescale(frequencies, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), 0.f, 1.f);
 
-		// https://www.desmos.com/calculator/gkyn81l5vv
-		float_4 gainCompensation = (compensate) ? 1.0 / (0.5 + 0.5 * simd::exp(-7 * resonances)) : 1.f;
-
-
 		float normalInput = 0.f, normalFreqInput = 0.f;
 		float_4 outputs_4;
 		for (int i = 0; i < NUM_CHANNELS; i++) {
@@ -146,13 +144,8 @@ struct Atlas : Module {
 
 			engines[i].process(frame);
 
-			if (mode == HP) {
-				// HP doesn't need gain compensation
-				gainCompensation[i] = 1.f;
-			}
-
 			// Atlas actually corrects for inverting effect
-			outputs_4[i] = -(mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : 0.5 * frame.hp2)) * gainCompensation[i];
+			outputs_4[i] = -(mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : 0.5 * frame.hp2));
 
 			outputs[OUT1_OUTPUT + i].setVoltage(outputs_4[i]);
 
@@ -174,7 +167,7 @@ struct Atlas : Module {
 	json_t* dataToJson() override {
 		json_t* rootJ = json_object();
 		json_object_set_new(rootJ, "gainCompensation", json_boolean(compensate));
-		json_object_set_new(rootJ, "addLowend", json_boolean(add_lowend));
+		json_object_set_new(rootJ, "addLowend", json_boolean(addLowend));
 		json_object_set_new(rootJ, "filterSimulationType", json_integer(static_cast<int>(filterSimulationType)));
 
 		return rootJ;
@@ -188,7 +181,7 @@ struct Atlas : Module {
 
 		json_t* jAddLowend = json_object_get(rootJ, "addLowend");
 		if (jAddLowend) {
-			add_lowend = json_boolean_value(jAddLowend);	
+			addLowend = json_boolean_value(jAddLowend);	
 		}
 
 		json_t* jFilterSimulationType = json_object_get(rootJ, "filterSimulationType");
@@ -228,13 +221,11 @@ struct AtlasWidget : ModuleWidget {
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(28.68, 112.704)), module, Atlas::SCAN_IN_INPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(37.914, 112.704)), module, Atlas::SCAN_OUT_OUTPUT));
 
-
 		// leds
 		addChild(createLight<VostokOrangeNumberLed<1>>(mm2px(Vec(41.461, 19.259)), module, Atlas::NUM1_LIGHT + 0));
 		addChild(createLight<VostokOrangeNumberLed<2>>(mm2px(Vec(41.461, 42.639)), module, Atlas::NUM1_LIGHT + 1));
 		addChild(createLight<VostokOrangeNumberLed<3>>(mm2px(Vec(41.074, 66.014)), module, Atlas::NUM1_LIGHT + 2));
 		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(41.074, 89.511)), module, Atlas::NUM1_LIGHT + 3));
-
 	}
 
 
@@ -242,10 +233,15 @@ struct AtlasWidget : ModuleWidget {
 		Atlas* module = dynamic_cast<Atlas*>(this->module);
 		assert(module);
 
+		menu->addChild(new MenuSeparator());
+		menu->addChild(createSubmenuItem("Hardware compatibility", "",
+		[ = ](Menu * menu) {
+			menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &module->clipOutput));
+		}));
+
 		// debug options only, don't expose to users yet
-		// menu->addChild(new MenuSeparator());
 		// menu->addChild(createBoolPtrMenuItem("Gain compensation (LP/BP only)", "", &module->compensate));
-		// menu->addChild(createBoolPtrMenuItem("Add lowend to HP", "", &module->add_lowend));
+		// menu->addChild(createBoolPtrMenuItem("Add lowend to HP", "", &module->addLowend));
 		// menu->addChild(createIndexPtrSubmenuItem("Filter simulation type", {"Heuristic", "Circuit based"}, &module->filterSimulationType));
 	}
 };

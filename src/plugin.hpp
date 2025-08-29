@@ -317,3 +317,13 @@ const float_4 crossfaderMins = float_4(0.0f, -10, -10, -10);
 const float_4 crossfaderMaxs = float_4(+10, +10, +10, 0.0f);
 
 float_4 gainsForChannels(float routeValue);
+
+// soft clip at +/- 10V
+template <typename T>
+static T clip4(T x) {
+	// Pade approximant of x/(1 + x^12)^(1/12)
+	const T limit = 1.16691853009184f;
+	x = clamp(x * 0.1f, -limit, limit);
+	return 10.0f * (x + 1.45833f * simd::pow(x, 13) + 0.559028f * simd::pow(x, 25) + 0.0427035f * simd::pow(x, 37))
+	       / (1.0f + 1.54167f * simd::pow(x, 12) + 0.642361f * simd::pow(x, 24) + 0.0579909f * simd::pow(x, 36));
+}
