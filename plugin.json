@@ -5,12 +5,10 @@
   "license": "GPL-3.0-or-later",
   "brand": "Vostok Instruments",
   "author": "Vostok Instruments, Ewan Hemingway",
-  "authorEmail": "",
-  "authorUrl": "",
+  "authorUrl": "https://aforestfullofsines.com/",
   "pluginUrl": "https://www.vostokinstruments.com/",
   "manualUrl": "https://www.vostokinstruments.com/",
   "sourceUrl": "https://github.com/Vostok-Instruments/Vostok_VCVRack",
-  "donateUrl": "",
   "changelogUrl": "https://github.com/Vostok-Instruments/Vostok_VCVRack/CHANGELOG.md",
   "modules": [
     {
