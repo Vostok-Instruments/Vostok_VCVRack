@@ -291,14 +291,14 @@ struct Sena : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		for (int i = 0; i < NUM_CHANNELS; ++i) {
-			freqParams[i] = configParam<FreqParamQuantity>(FREQ1_PARAM + i, 0.f, 1.f, defaultFreqCoarse, "Frequency", "Hz");
-			configParam(MOD1_PARAM + i, 0.f, 1.f, 0.f, modeNames[i]);
-			configSwitch(VCO_LFO_MODE1_PARAM + i, 0.f, 1.f, 1.f, "Rate Mode", {"LFO", "VCO"});
-			configSwitch(VOCT_FM1_PARAM + i, 0.f, 1.f, 0.f, "FM Type", {"V/OCT", "FM"});
-			configSwitch(FINE1_PARAM + i, 0.f, 1.f, 0.f, "Tuning", {"Coarse", "Fine"});
-			configInput(VOCT1_INPUT + i, string::f("%s v/oct", channelNames[i].c_str()));
-			configInput(MOD1_INPUT + i, string::f("%s CV", modeNames[i].c_str()));
-			configOutput(OUT1_OUTPUT + i, string::f("%s", channelNames[i].c_str()));
+			freqParams[i] = configParam<FreqParamQuantity>(FREQ1_PARAM + i, 0.f, 1.f, defaultFreqCoarse, string::f("Ch. %d frequency", i + 1), "Hz");
+			configParam(MOD1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d %s", i + 1, modeNames[i].c_str()));
+			configSwitch(VCO_LFO_MODE1_PARAM + i, 0.f, 1.f, 1.f, string::f("Ch. %d Rate Mode", i + 1), {"LFO", "VCO"});
+			configSwitch(VOCT_FM1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d FM Type", i + 1), {"V/OCT", "FM"});
+			configSwitch(FINE1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d Tuning", i + 1), {"Coarse", "Fine"});
+			configInput(VOCT1_INPUT + i, string::f("Ch. %d %s v/oct", i + 1, channelNames[i].c_str()));
+			configInput(MOD1_INPUT + i, string::f("Ch. %d %s CV", i + 1, modeNames[i].c_str()));
+			configOutput(OUT1_OUTPUT + i, string::f("Ch. %d %s", i + 1, channelNames[i].c_str()));
 		}
 
 		configOutput(WHITE_OUTPUT, "White Noise");

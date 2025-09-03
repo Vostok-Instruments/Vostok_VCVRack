@@ -55,7 +55,7 @@ struct Atlas : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		for (int i = 0; i < NUM_CHANNELS; i++) {
-			configParam(FREQ1_PARAM + i, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), std::log2(dsp::FREQ_C4), string::f("Ch. %d frequency", i), " Hz", 2.f);
+			configParam(FREQ1_PARAM + i, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), std::log2(dsp::FREQ_C4), string::f("Ch. %d frequency", i + 1), " Hz", 2.f);
 			configParam(RES1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d Resonance", i + 1));
 			configSwitch(FM_RES_1_PARAM + i, 0.f, 1.f, 1.f, string::f("Ch. %d CV Dest.", i + 1), {"Resonance", "FM2"});
 			configSwitch(MODE1_PARAM + i, 0.f, 2.f, 0.f, string::f("Ch. %d Filter Mode", i + 1), {"LP (4-pole)", "HP (2-pole)", "BP (4-pole)"});
