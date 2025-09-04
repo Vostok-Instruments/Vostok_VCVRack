@@ -238,25 +238,37 @@ struct VostokNumberLedT : ModuleLightWidget {
 	}
 };
 
-template <int N>
-using VostokWhiteNumberLed = VostokNumberLedT<N, C_WHITE>;
+template <typename TBase = GrayModuleLightWidget>
+struct TOrangeLight : TBase {
+	TOrangeLight() {
+		this->addBaseColor(SCHEME_ORANGE);
+	}
+};
+using OrangeLight = TOrangeLight<>;
 
 template <int N>
-using VostokOrangeNumberLed = VostokNumberLedT<N, C_ORANGE>;
+//using VostokWhiteNumberLed = VostokNumberLedT<N, C_WHITE>;
+using VostokWhiteNumberLed = SmallLight<WhiteLight>;
+
+template <int N>
+// using VostokOrangeNumberLed = VostokNumberLedT<N, C_ORANGE>;
+using VostokOrangeNumberLed = SmallLight<RedLight>;
 
 template <int N>
 using VostokRGBNumberLed = VostokNumberLedT<N, C_RGB>;
 
 template <int N>
-using VostokUpperWhiteNumberLed = VostokNumberLedT<N, C_WHITE, SPLIT_TOP>;
+// using VostokUpperWhiteNumberLed = VostokNumberLedT<N, C_WHITE, SPLIT_TOP>;
+using VostokUpperWhiteNumberLed = SmallLight<WhiteLight>;
 template <int N>
-using VostokLowerOrangeNumberLed = VostokNumberLedT<N, C_ORANGE, SPLIT_BOTTOM>;
+// using VostokLowerOrangeNumberLed = VostokNumberLedT<N, C_ORANGE, SPLIT_BOTTOM>;
+using VostokLowerOrangeNumberLed = SmallLight<OrangeLight>;
 
 // for Asset
 template <int N>
-using VostokUpperOrangeNumberLed = VostokNumberLedT<N, C_ORANGE, SPLIT_TOP>;
+using VostokUpperOrangeNumberLed = SmallLight<OrangeLight>;
 template <int N>
-using VostokLowerBlueNumberLed = VostokNumberLedT<N, C_BLUE, SPLIT_BOTTOM>;
+using VostokLowerBlueNumberLed = SmallLight<BlueLight>;
 
 
 // derived from VCVSlider

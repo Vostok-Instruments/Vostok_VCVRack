@@ -13,8 +13,7 @@
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
    xmlns="http://www.w3.org/2000/svg"
-   xmlns:svg="http://www.w3.org/2000/svg"
-   xmlns:serif="http://www.serif.com/"><sodipodi:namedview
+   xmlns:svg="http://www.w3.org/2000/svg"><sodipodi:namedview
    id="namedview358"
    pagecolor="#ffffff"
    bordercolor="#666666"
@@ -23,16 +22,17 @@
    inkscape:pageopacity="0.0"
    inkscape:pagecheckerboard="0"
    inkscape:deskcolor="#d1d1d1"
-   inkscape:zoom="1.582565"
-   inkscape:cx="121.32203"
-   inkscape:cy="297.93405"
+   inkscape:zoom="1.1190424"
+   inkscape:cx="85.787631"
+   inkscape:cy="211.3414"
    inkscape:window-width="1392"
    inkscape:window-height="1212"
    inkscape:window-x="995"
-   inkscape:window-y="90"
+   inkscape:window-y="34"
    inkscape:window-maximized="0"
    inkscape:current-layer="svg358"
-   inkscape:document-units="mm" />
+   inkscape:document-units="mm"
+   showgrid="false" />
     <rect
    x="0"
    y="0"
@@ -48,7 +48,7 @@
                     
                 </g>
             </g><g
-   transform="matrix(1.3333332,0,0,1.3333332,120.79545,54.518261)"
+   transform="matrix(1.9999998,0,0,1.9999998,101.82353,38.879595)"
    id="g3">
                     <g
    transform="matrix(6,0,0,6,34.6415,25.5577)"
@@ -60,7 +60,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#b68e00"
    aria-label="PAN" />
                 </g><g
-   transform="matrix(1.3333332,0,0,1.3333332,120.79545,124.06159)"
+   transform="matrix(1.9999998,0,0,1.9999998,101.82353,108.42292)"
    id="g5">
                     <g
    transform="matrix(6,0,0,6,34.6415,25.5577)"
@@ -72,7 +72,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#b68e00"
    aria-label="PAN" />
                 </g><g
-   transform="matrix(1.3333332,0,0,1.3333332,120.79545,193.41598)"
+   transform="matrix(1.9999998,0,0,1.9999998,101.82353,177.77731)"
    id="g7">
                     <g
    transform="matrix(6,0,0,6,34.6415,25.5577)"
@@ -84,7 +84,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#b68e00"
    aria-label="PAN" />
                 </g><g
-   transform="matrix(1.3333332,0,0,1.3333332,120.79545,263.52664)"
+   transform="matrix(1.9999998,0,0,1.9999998,101.82353,247.88797)"
    id="g9">
                     <g
    transform="matrix(6,0,0,6,34.6415,25.5577)"
@@ -96,7 +96,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#b68e00"
    aria-label="PAN" />
                 </g><g
-   transform="matrix(1.3333332,0,0,1.3333332,-16.113732,356.12396)"
+   transform="matrix(1.6199998,0,0,1.7999998,-24.859036,345.17689)"
    id="g11">
                     <g
    transform="matrix(6,0,0,6,38.6315,25.5577)"
@@ -108,7 +108,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#b68e00"
    aria-label="PAN 1" />
                 </g><g
-   transform="matrix(1.3333332,0,0,1.3333332,17.917865,356.16796)"
+   transform="matrix(1.6199998,0,0,1.7999998,9.0126005,345.23629)"
    id="g13">
                     <g
    transform="matrix(6,0,0,6,39.5975,25.5577)"
@@ -120,7 +120,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#b68e00"
    aria-label="PAN 2" />
                 </g><g
-   transform="matrix(1.3333332,0,0,1.3333332,-16.917732,412.77729)"
+   transform="matrix(1.6199998,0,0,1.7999998,-25.836756,401.81622)"
    id="g15">
                     <g
    transform="matrix(6,0,0,6,39.6755,25.5577)"
@@ -132,7 +132,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#b68e00"
    aria-label="PAN 3" />
                 </g><g
-   transform="matrix(1.3333332,0,0,1.3333332,17.713865,412.81729)"
+   transform="matrix(1.6199998,0,0,1.7999998,8.7647405,401.87022)"
    id="g17">
                     <g
    transform="matrix(6,0,0,6,39.7655,25.5577)"
@@ -168,7 +168,7 @@
    style="fill:none;stroke:#ad8930;stroke-width:4.78px"
    id="path19" />
                 </g><g
-   transform="matrix(0.62036472,0,0,0.62036472,-209.00637,449.91514)"
+   transform="matrix(0.93054708,0,0,0.93054708,-361.58788,440.54228)"
    id="g27"
    clip-path="url(#clipPath375)">
                     <g
@@ -206,7 +206,7 @@
                         </g>
                     </g>
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,-12.877742,54.518233)"
+   transform="matrix(1.9999989,0,0,1.9999989,-31.598401,38.879574)"
    id="g29">
                     <g
    transform="matrix(6,0,0,6,33.1835,25.5577)"
@@ -218,7 +218,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="IN L" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,21.609917,54.518233)"
+   transform="matrix(1.9999989,0,0,1.9999989,2.7452577,38.879574)"
    id="g31">
                     <g
    transform="matrix(6,0,0,6,33.6935,25.5577)"
@@ -230,7 +230,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="IN R" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,21.609917,124.06158)"
+   transform="matrix(1.9999989,0,0,1.9999989,2.7452577,108.42292)"
    id="g33">
                     <g
    transform="matrix(6,0,0,6,33.6935,25.5577)"
@@ -242,7 +242,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="IN R" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,21.609917,193.41598)"
+   transform="matrix(1.9999989,0,0,1.9999989,2.7452577,177.77732)"
    id="g35">
                     <g
    transform="matrix(6,0,0,6,33.6935,25.5577)"
@@ -254,7 +254,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="IN R" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,21.609917,263.52637)"
+   transform="matrix(1.9999989,0,0,1.9999989,2.7452577,247.88771)"
    id="g37">
                     <g
    transform="matrix(6,0,0,6,33.6935,25.5577)"
@@ -266,7 +266,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="IN R" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,-12.877742,124.06158)"
+   transform="matrix(1.9999989,0,0,1.9999989,-31.598401,108.42292)"
    id="g39">
                     <g
    transform="matrix(6,0,0,6,33.1835,25.5577)"
@@ -278,7 +278,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="IN L" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,-12.877742,193.41598)"
+   transform="matrix(1.9999989,0,0,1.9999989,-31.598401,177.77732)"
    id="g41">
                     <g
    transform="matrix(6,0,0,6,33.1835,25.5577)"
@@ -290,7 +290,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="IN L" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,-12.877742,263.52637)"
+   transform="matrix(1.9999989,0,0,1.9999989,-31.598401,247.88771)"
    id="g43">
                     <g
    transform="matrix(6,0,0,6,33.1835,25.5577)"
@@ -302,7 +302,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="IN L" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,64.748312,54.518233)"
+   transform="matrix(1.9999989,0,0,1.9999989,45.153155,38.879574)"
    id="g45">
                     <g
    transform="matrix(6,0,0,6,36.5075,25.5577)"
@@ -314,7 +314,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="GAIN" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,64.748312,124.06158)"
+   transform="matrix(1.9999989,0,0,1.9999989,45.153155,108.42292)"
    id="g47">
                     <g
    transform="matrix(6,0,0,6,36.5075,25.5577)"
@@ -326,7 +326,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="GAIN" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,64.748312,193.41598)"
+   transform="matrix(1.9999989,0,0,1.9999989,45.153155,177.77732)"
    id="g49">
                     <g
    transform="matrix(6,0,0,6,36.5075,25.5577)"
@@ -338,7 +338,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="GAIN" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,64.748312,263.52637)"
+   transform="matrix(1.9999989,0,0,1.9999989,45.153155,247.88771)"
    id="g51">
                     <g
    transform="matrix(6,0,0,6,36.5075,25.5577)"
@@ -350,7 +350,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="GAIN" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,97.735508,399.25915)"
+   transform="matrix(1.9999989,0,0,1.9999989,74.790849,383.62049)"
    id="g53">
                     <g
    transform="matrix(6,0,0,6,45.9815,25.5577)"
@@ -362,7 +362,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="MASTER" />
                 </g><g
-   transform="matrix(1.9447678,0,0,0.23473437,17.257918,377.19835)"
+   transform="matrix(2.3628929,0,0,0.3168914,-1.3779165,373.62694)"
    id="g54"
    clip-path="url(#clipPath373)">
                     <path
@@ -370,7 +370,7 @@
    style="fill:#ffffff"
    id="path53" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,62.744312,356.12476)"
+   transform="matrix(1.6199991,0,0,1.799999,53.88866,345.1777)"
    id="g56">
                     <g
    transform="matrix(6,0,0,6,39.0515,25.5577)"
@@ -382,15 +382,15 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik"
    aria-label="OUT L" />
                 </g><g
-   transform="matrix(1.9447678,0,0,0.23473437,17.257918,433.89115)"
+   transform="matrix(2.9171517,0,0,0.35210155,-26.081232,428.78914)"
    id="g57"
    clip-path="url(#clipPath371)">
                     <path
-   d="m 51.096,31.542 c 0,-2.931 -0.287,-5.311 -0.641,-5.311 h -11.77 c -0.353,0 -0.641,2.38 -0.641,5.311 v 23.857 c 0,2.931 0.288,5.311 0.641,5.311 h 11.77 c 0.354,0 0.641,-2.38 0.641,-5.311 z"
-   style="fill:#ffffff"
+   d="m 49.85606,32.73485 c 0,-2.6379 -0.23247,-4.7799 -0.51921,-4.7799 h -9.5337 c -0.28593,0 -0.51921,2.142 -0.51921,4.7799 v 21.4713 c 0,2.6379 0.23328,4.7799 0.51921,4.7799 h 9.5337 c 0.28674,0 0.51921,-2.142 0.51921,-4.7799 z"
+   style="fill:#ffffff;stroke-width:0.853815"
    id="path56" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,62.460312,412.81755)"
+   transform="matrix(1.6199991,0,0,1.799999,53.54274,401.87049)"
    id="g59">
                     <g
    transform="matrix(6,0,0,6,39.5615,25.5577)"
@@ -402,7 +402,7 @@
    style="font-size:6px;font-family:Rubik-Regular, Rubik"
    aria-label="OUT R" />
                 </g><g
-   transform="matrix(0.70298551,0,0,2.1253917,-32.383676,42.970234)"
+   transform="matrix(1.0544783,0,0,3.1880876,-69.460293,21.557703)"
    id="g61"
    clip-path="url(#clipPath369)">
                     <g
@@ -418,7 +418,7 @@
    id="path60" />
                     </g>
                 </g><g
-   transform="matrix(0.70298551,0,0,2.1253917,-32.383676,112.51359)"
+   transform="matrix(1.0544783,0,0,3.1880876,-69.460293,91.101033)"
    id="g63"
    clip-path="url(#clipPath367)">
                     <g
@@ -434,7 +434,7 @@
    id="path62" />
                     </g>
                 </g><g
-   transform="matrix(0.70298551,0,0,2.1253917,-32.383676,181.86718)"
+   transform="matrix(1.0544783,0,0,3.1880875,-69.460293,160.45428)"
    id="g65"
    clip-path="url(#clipPath365)">
                     <g
@@ -450,7 +450,7 @@
    id="path64" />
                     </g>
                 </g><g
-   transform="matrix(0.70298551,0,0,2.1253917,-32.383676,251.97757)"
+   transform="matrix(1.0544783,0,0,3.1880875,-69.460293,230.56503)"
    id="g67"
    clip-path="url(#clipPath363)">
                     <g
@@ -466,7 +466,7 @@
    id="path66" />
                     </g>
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,48.687674,-11.965119)"
+   transform="matrix(1.9999989,0,0,1.9999989,25.369689,-26.341778)"
    id="g69">
                     <g
    transform="matrix(11,0,0,11,46.7575,25.5577)"
@@ -478,7 +478,7 @@
    style="font-weight:300;font-size:11px;font-family:Montserrat-Light, Montserrat;fill:#ffffff"
    aria-label="Hive" />
                 </g><g
-   transform="matrix(1.3333326,0,0,1.3333326,-16.239518,301.93436)"
+   transform="matrix(1.9999989,0,0,1.9999989,-34.943428,286.2957)"
    id="g71">
                     <g
    transform="matrix(6,0,0,6,87.8795,25.5577)"
@@ -489,34 +489,6 @@
    id="text70"
    style="font-size:6px;font-family:Rubik-Regular, Rubik;fill:#ffffff"
    aria-label="CV PAN &amp; MASTER BUS" />
-                </g><g
-   id="Holes1"
-   serif:id="Holes"
-   transform="matrix(1.3333326,0,0,1.3333326,-325.23036,-69.953591)">
-                    <g
-   id="Screw-Holes"
-   serif:id="Screw Holes">
-                        <g
-   id="rect3750"
-   transform="matrix(0.12,0,0,0.12,243.923,52.4652)">
-                            
-                        </g>
-                        <g
-   id="rect3752"
-   transform="matrix(0.12,0,0,0.12,243.923,52.4652)">
-                            
-                        </g>
-                        <g
-   id="rect3754"
-   transform="matrix(0.12,0,0,0.12,243.923,52.4652)">
-                            
-                        </g>
-                        <g
-   id="rect3756"
-   transform="matrix(0.12,0,0,0.12,243.923,52.4652)">
-                            
-                        </g>
-                    </g>
                 </g>
             
         

@@ -114,19 +114,19 @@ struct AssetWidget : ModuleWidget {
 			addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(15.731, 15.337 + i * step_y)), module, Asset::OUT1_OUTPUT + i));
 		}
 
-		addChild(createLight<VostokUpperOrangeNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Asset::NUM1_LIGHT + 2 * 0 + 0));
-		addChild(createLight<VostokUpperOrangeNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Asset::NUM1_LIGHT + 2 * 1 + 0));
-		addChild(createLight<VostokUpperOrangeNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Asset::NUM1_LIGHT + 2 * 2 + 0));
-		addChild(createLight<VostokUpperOrangeNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Asset::NUM1_LIGHT + 2 * 3 + 0));
-		addChild(createLight<VostokUpperOrangeNumberLed<5>>(mm2px(Vec(31.941, 92.853)), module, Asset::NUM1_LIGHT + 2 * 4 + 0));
-		addChild(createLight<VostokUpperOrangeNumberLed<6>>(mm2px(Vec(31.941, 111.296)), module, Asset::NUM1_LIGHT + 2 * 5 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<1>>(mm2px(Vec(31.994 + 2.f, -8.f + 19.259)), module, Asset::NUM1_LIGHT + 2 * 0 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<2>>(mm2px(Vec(31.994 + 2.f, -8.f + 37.665)), module, Asset::NUM1_LIGHT + 2 * 1 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<3>>(mm2px(Vec(31.607 + 2.f, -8.f + 56.040)), module, Asset::NUM1_LIGHT + 2 * 2 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<4>>(mm2px(Vec(31.607 + 2.f, -8.f + 74.537)), module, Asset::NUM1_LIGHT + 2 * 3 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<5>>(mm2px(Vec(31.941 + 2.f, -8.f + 92.853)), module, Asset::NUM1_LIGHT + 2 * 4 + 0));
+		addChild(createLight<VostokUpperOrangeNumberLed<6>>(mm2px(Vec(31.941 + 2.f, -8.f + 111.296)), module, Asset::NUM1_LIGHT + 2 * 5 + 0));
 
-		addChild(createLight<VostokLowerBlueNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Asset::NUM1_LIGHT + 2 * 0 + 1));
-		addChild(createLight<VostokLowerBlueNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Asset::NUM1_LIGHT + 2 * 1 + 1));
-		addChild(createLight<VostokLowerBlueNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Asset::NUM1_LIGHT + 2 * 2 + 1));
-		addChild(createLight<VostokLowerBlueNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Asset::NUM1_LIGHT + 2 * 3 + 1));
-		addChild(createLight<VostokLowerBlueNumberLed<5>>(mm2px(Vec(31.941, 92.853)), module, Asset::NUM1_LIGHT + 2 * 4 + 1));
-		addChild(createLight<VostokLowerBlueNumberLed<6>>(mm2px(Vec(31.941, 111.296)), module, Asset::NUM1_LIGHT + 2 * 5 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<1>>(mm2px(Vec(31.994 + 2.f, -2.f + 19.259)), module, Asset::NUM1_LIGHT + 2 * 0 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<2>>(mm2px(Vec(31.994 + 2.f, -2.f + 37.665)), module, Asset::NUM1_LIGHT + 2 * 1 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<3>>(mm2px(Vec(31.607 + 2.f, -2.f + 56.040)), module, Asset::NUM1_LIGHT + 2 * 2 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<4>>(mm2px(Vec(31.607 + 2.f, -2.f + 74.537)), module, Asset::NUM1_LIGHT + 2 * 3 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<5>>(mm2px(Vec(31.941 + 2.f, -2.f + 92.853)), module, Asset::NUM1_LIGHT + 2 * 4 + 1));
+		addChild(createLight<VostokLowerBlueNumberLed<6>>(mm2px(Vec(31.941 + 2.f, -2.f + 111.296)), module, Asset::NUM1_LIGHT + 2 * 5 + 1));
 	}
 
 	void appendContextMenu(Menu* menu) override {

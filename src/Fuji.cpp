@@ -183,12 +183,12 @@ struct FujiWidget : ModuleWidget {
 			addParam(createParam<CKSSHoriz2>(mm2px(Vec(13.72, 23.155 + step_y * i)), module, Fuji::LOOP1_PARAM + i));
 		}
 
-		addChild(createLight<VostokOrangeNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Fuji::NUM1_LIGHT + 0));
-		addChild(createLight<VostokOrangeNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Fuji::NUM1_LIGHT + 1));
-		addChild(createLight<VostokOrangeNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Fuji::NUM1_LIGHT + 2));
-		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Fuji::NUM1_LIGHT + 3));
-		addChild(createLight<VostokOrangeNumberLed<5>>(mm2px(Vec(31.941, 92.853)), module, Fuji::NUM1_LIGHT + 4));
-		addChild(createLight<VostokOrangeNumberLed<6>>(mm2px(Vec(31.941, 111.296)), module, Fuji::NUM1_LIGHT + 5));
+		addChild(createLight<VostokOrangeNumberLed<1>>(mm2px(Vec(31.994 + 2.f, -6.f + 19.259)), module, Fuji::NUM1_LIGHT + 0));
+		addChild(createLight<VostokOrangeNumberLed<2>>(mm2px(Vec(31.994 + 2.f, -6.f + 37.665)), module, Fuji::NUM1_LIGHT + 1));
+		addChild(createLight<VostokOrangeNumberLed<3>>(mm2px(Vec(31.607 + 2.f, -6.f + 56.040)), module, Fuji::NUM1_LIGHT + 2));
+		addChild(createLight<VostokOrangeNumberLed<4>>(mm2px(Vec(31.607 + 2.f, -6.f + 74.537)), module, Fuji::NUM1_LIGHT + 3));
+		addChild(createLight<VostokOrangeNumberLed<5>>(mm2px(Vec(31.941 + 2.f, -6.f + 92.853)), module, Fuji::NUM1_LIGHT + 4));
+		addChild(createLight<VostokOrangeNumberLed<6>>(mm2px(Vec(31.941 + 2.f, -6.f + 111.296)), module, Fuji::NUM1_LIGHT + 5));
 	}
 };
 

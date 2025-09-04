@@ -244,14 +244,15 @@ struct HiveWidget : ModuleWidget {
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(27.615, 96.403)), module, Hive::LEFT_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(27.615, 111.403)), module, Hive::RIGHT_OUTPUT));
 
-		addChild(createLight<VostokUpperWhiteNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Hive::NUM_LIGHT + 2 * 0 + 0)); 	// white top
-		addChild(createLight<VostokLowerOrangeNumberLed<1>>(mm2px(Vec(31.994, 19.259)), module, Hive::NUM_LIGHT + 2 * 0 + 1)); 	// orange bottom
-		addChild(createLight<VostokUpperWhiteNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 0));
-		addChild(createLight<VostokLowerOrangeNumberLed<2>>(mm2px(Vec(31.994, 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 1));
-		addChild(createLight<VostokUpperWhiteNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 0));
-		addChild(createLight<VostokLowerOrangeNumberLed<3>>(mm2px(Vec(31.607, 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 1));
-		addChild(createLight<VostokUpperWhiteNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 0));
-		addChild(createLight<VostokLowerOrangeNumberLed<4>>(mm2px(Vec(31.607, 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 1));
+		addChild(createLight<VostokUpperWhiteNumberLed<1>>(mm2px(Vec(31.994 + 2.f, -8.f + 19.259)), module, Hive::NUM_LIGHT + 2 * 0 + 0)); 	// white top
+		addChild(createLight<VostokUpperWhiteNumberLed<2>>(mm2px(Vec(31.994 + 2.f, -8.f + 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 0));
+		addChild(createLight<VostokUpperWhiteNumberLed<3>>(mm2px(Vec(31.607 + 2.f, -8.f + 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 0));
+		addChild(createLight<VostokUpperWhiteNumberLed<4>>(mm2px(Vec(31.607 + 2.f, -8.f + 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 0));
+
+		addChild(createLight<VostokLowerOrangeNumberLed<1>>(mm2px(Vec(31.994 + 2.f, -2.f + 19.259)), module, Hive::NUM_LIGHT + 2 * 0 + 1)); 	// orange bottom
+		addChild(createLight<VostokLowerOrangeNumberLed<2>>(mm2px(Vec(31.994 + 2.f, -2.f + 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 1));
+		addChild(createLight<VostokLowerOrangeNumberLed<3>>(mm2px(Vec(31.607 + 2.f, -2.f + 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 1));
+		addChild(createLight<VostokLowerOrangeNumberLed<4>>(mm2px(Vec(31.607 + 2.f, -2.f + 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 1));
 
 		addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(34.31, 100.043)), module, Hive::LEFT_LIGHT));
 		addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(34.31, 107.578)), module, Hive::RIGHT_LIGHT));
