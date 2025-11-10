@@ -22,7 +22,12 @@ DISTRIBUTABLES += $(wildcard presets)
 # Include the Rack plugin Makefile framework
 include $(RACK_DIR)/plugin.mk
 
-CXXFLAGS += -std=c++17 
+CXXFLAGS += -std=c++17
 
 # debuging flags
 # CXXFLAGS += -g -O0
+
+# Format all source files except ripples
+.PHONY: format
+format:
+	find src -type f \( -name "*.cpp" -o -name "*.hpp" \) ! -path "src/ripples/*" -exec clang-format -i {} +
