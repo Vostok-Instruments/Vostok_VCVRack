@@ -16,7 +16,7 @@
 
 #pragma once
 
-namespace ripples
+namespace vostok_ripples
 {
 
 struct SOSCoefficients

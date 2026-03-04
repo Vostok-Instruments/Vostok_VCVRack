@@ -1,5 +1,6 @@
 #include "plugin.hpp"
 #include "ripples.hpp"
+#include <cmath>
 
 struct Atlas : Module {
 	static const int NUM_CHANNELS = 4;
@@ -38,7 +39,7 @@ struct Atlas : Module {
 		FM2
 	};
 
-	ripples::RipplesEngine engines[NUM_CHANNELS];
+	vostok_ripples::RipplesEngine engines[NUM_CHANNELS];
 	dsp::ClockDivider lightDivider;
 	bool compensate = true;
 	bool addLowend = true;
@@ -55,7 +56,7 @@ struct Atlas : Module {
 		config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
 		for (int i = 0; i < NUM_CHANNELS; i++) {
-			configParam(FREQ1_PARAM + i, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), std::log2(dsp::FREQ_C4), string::f("Ch. %d frequency", i + 1), " Hz", 2.f);
+			configParam(FREQ1_PARAM + i, std::log2(vostok_ripples::kFreqKnobMin), std::log2(vostok_ripples::kFreqKnobMax), std::log2(dsp::FREQ_C4), string::f("Ch. %d frequency", i + 1), " Hz", 2.f);
 			configParam(RES1_PARAM + i, 0.f, 1.f, 0.f, string::f("Ch. %d Resonance", i + 1));
 			configSwitch(FM_RES_1_PARAM + i, 0.f, 1.f, 1.f, string::f("Ch. %d CV Dest.", i + 1), {"Resonance", "FM2"});
 			configSwitch(MODE1_PARAM + i, 0.f, 2.f, 0.f, string::f("Ch. %d Filter Mode", i + 1), {"LP (4-pole)", "HP (2-pole)", "BP (4-pole)"});
@@ -90,9 +91,10 @@ struct Atlas : Module {
 	void process(const ProcessArgs& args) override {
 
 		// Reuse the same frame object for multiple engines because some params aren't touched.
-		ripples::RipplesEngine::Frame frame;
+		vostok_ripples::RipplesEngine::Frame frame;
 		frame.fm_knob = 1.;
 		frame.addLowend = addLowend;
+		frame.gainCompensation = compensate;
 		frame.clipOutputs = clipOutput;
 
 		const bool updateLeds = lightDivider.process();
@@ -124,7 +126,7 @@ struct Atlas : Module {
 		  params[FREQ1_PARAM + 2].getValue(),
 		  params[FREQ1_PARAM + 3].getValue()
 		);
-		const float_4 frequenciesScaled = simd::rescale(frequencies, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), 0.f, 1.f);
+		const float_4 frequenciesScaled = simd::rescale(frequencies, std::log2(vostok_ripples::kFreqKnobMin), std::log2(vostok_ripples::kFreqKnobMax), 0.f, 1.f);
 
 		float normalInput = 0.f, normalFreqInput = 0.f;
 		float_4 outputs_4;

@@ -22,7 +22,7 @@
 
 using namespace rack;
 
-namespace ripples
+namespace vostok_ripples
 {
 
 // Frequency knob
@@ -113,8 +113,6 @@ static const float kVtoICollectorVSat = -10.f;
 // Opamp saturation voltage
 static const float kOpampSatV = 10.6f;
 
-
-
 class RipplesEngine
 {
 public:
@@ -156,7 +154,7 @@ public:
         aa_filter_.Init(sample_rate);
 
         float oversample_rate =
-            sample_rate * 1; // aa_filter_.GetOversamplingFactor();
+            sample_rate * aa_filter_.GetOversamplingFactor();
 
         float freq_cut = 1.f / (2.f * M_PI * kFreqAmpR * kFreqAmpC);
         float res_cut  = 1.f / (2.f * M_PI * kResAmpR  * kResAmpC);
@@ -183,20 +181,8 @@ public:
         float i_reso = VtoIConverter(kResAmpR, frame.res_cv, kResInputR,
             frame.res_knob * kResKnobV, kResKnobR);
 
-        // Calculate gain control current (unused)
-        /*
-        float gain_cv = frame.gain_cv;
-        float gain_input_r = kGainInputR;
-        if (!frame.gain_cv_present)
-        {
-            gain_cv = kGainNormalV;
-            gain_input_r += kGainNormalR;
-        }
-        float i_vca = VtoIConverter(kGainAmpR, gain_cv, gain_input_r);
-        */
-
         // Pack and upsample inputs
-        const int oversampling_factor = 1; // aa_filter_.GetOversamplingFactor();
+        const int oversampling_factor = aa_filter_.GetOversamplingFactor();
         float timestep = sample_time_ / oversampling_factor;
         // Add noise to input to bootstrap self-oscillation
         float input = frame.input + 1e-6 * (random::uniform() - 0.5f);
@@ -212,7 +198,7 @@ public:
 
         for (int i = 0; i < oversampling_factor; i++)
         {
-            //inputs = aa_filter_.ProcessUp((i == 0) ? inputs : 0.f);
+            inputs = aa_filter_.ProcessUp((i == 0) ? inputs : 0.f);
             outputs = CoreProcess(inputs, timestep, frame.res_knob, frame.addLowend);  
             outputs *= gainsCompensation;
 
@@ -221,7 +207,7 @@ public:
                 outputs = clip4(outputs);
             }
             
-            //outputs = aa_filter_.ProcessDown(outputs);
+            outputs = aa_filter_.ProcessDown(outputs);
         }
 
         frame.hp2     = outputs[0];
@@ -233,7 +219,7 @@ public:
 protected:
     float sample_time_;
     simd::float_4 cell_voltage_;
-    ripples::AAFilter<simd::float_4> aa_filter_;
+    vostok_ripples::AAFilter<simd::float_4> aa_filter_;
     dsp::TRCFilter<simd::float_4> rc_filters_;
     dsp::TRCFilter<float> vca_hpf_;
 
