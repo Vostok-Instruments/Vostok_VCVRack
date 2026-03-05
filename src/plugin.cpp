@@ -1,10 +1,13 @@
 #include "plugin.hpp"
 
 
+#if defined(METAMODULE_BUILTIN)
+extern Plugin* pluginInstance; // supplied by MetaModule when baked in for firmware/simulator testing
+void init_VostokInstruments(Plugin* p) {
+#else
 Plugin* pluginInstance;
-
-
 void init(Plugin* p) {
+#endif
 	pluginInstance = p;
 
 	// Add modules here
