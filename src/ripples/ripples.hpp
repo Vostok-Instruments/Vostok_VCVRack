@@ -16,7 +16,8 @@
 
 #include <cmath>
 #include <algorithm>
-#include <random>
+#include <array>
+#include <cstdint>
 #include "rack.hpp"
 #include "aafilter.hpp"
 
@@ -185,14 +186,14 @@ public:
         const int oversampling_factor = aa_filter_.GetOversamplingFactor();
         float timestep = sample_time_ / oversampling_factor;
         // Add noise to input to bootstrap self-oscillation
-        float input = frame.input + 1e-6 * (random::uniform() - 0.5f);
+        float input = frame.input + 1e-6f * FastUniformCentered();
         auto inputs = simd::float_4(input, v_oct, i_reso, 0.f);
         inputs *= oversampling_factor;
         simd::float_4 outputs;
 
         // apply heuristic gain compensation to keep level consistent across resonance settings
         // https://www.desmos.com/calculator/gkyn81l5vv
-        float gainCompensation = (frame.gainCompensation) ? 1.0 / (0.5 + 0.5 * std::exp(-7 * frame.res_knob)) : 1.f;
+        float gainCompensation = frame.gainCompensation ? GainCompLUT(frame.res_knob) : 1.f;
         // doesn't affect HP output though
         float_4 gainsCompensation = simd::float_4(1.0, gainCompensation, gainCompensation, 1.0);
 
@@ -222,6 +223,36 @@ protected:
     vostok_ripples::AAFilter<simd::float_4> aa_filter_;
     dsp::TRCFilter<simd::float_4> rc_filters_;
     dsp::TRCFilter<float> vca_hpf_;
+    uint32_t noise_state_ = 0x6d2b79f5u;
+
+    inline float FastUniformCentered()
+    {
+        noise_state_ ^= noise_state_ << 13;
+        noise_state_ ^= noise_state_ >> 17;
+        noise_state_ ^= noise_state_ << 5;
+        constexpr float kInv24Bit = 1.0f / 16777216.0f;
+        return static_cast<float>(noise_state_ >> 8) * kInv24Bit - 0.5f;
+    }
+
+    inline float GainCompLUT(float res_knob)
+    {
+        constexpr int N = 256;
+        static std::array<float, N + 1> lut = [] {
+            std::array<float, N + 1> t{};
+            for (int i = 0; i <= N; ++i) {
+                const float r = static_cast<float>(i) / static_cast<float>(N);
+                t[i] = 2.f / (1.f + std::exp(-7.f * r));
+            }
+            return t;
+        }();
+
+        const float x = clamp(res_knob, 0.f, 1.f) * static_cast<float>(N);
+        const int i = static_cast<int>(x);
+        const float f = x - static_cast<float>(i);
+        const float a = lut[i];
+        const float b = lut[(i < N) ? (i + 1) : N];
+        return a + (b - a) * f;
+    }
 
     // High-rate processing core
     // inputs: vector containing (input, v_oct, i_reso, i_vca)
@@ -258,25 +289,21 @@ protected:
         //    dvout/dt = -A/(RC) * (vin + vout)
 
         // Calculate -A / RC
-        simd::float_4 rad_per_s = -std::exp2f(v_oct) / kFilterCellRC;
+        simd::float_4 rad_per_s = -rack::dsp::exp2_taylor5(v_oct) / kFilterCellRC;
 
         // Emulate the filter core
         cell_voltage_ = StepRK2(timestep, cell_voltage_, [&](simd::float_4 vout)
         {
             // vout contains the initial cell voltages (v0, v1 v2, v3)
 
-            // Rotate cell voltages. vin will contain (v3, v0, v1, v2)
-            simd::float_4 vin =
-                _mm_shuffle_ps(vout.v, vout.v, _MM_SHUFFLE(2, 1, 0, 3));
-
             // The core input is the filter input plus the resonance signal
             float vp = feedforward * kFeedforwardGain;
             float vn = vout[3] * kFeedbackGain;
             float res = kFilterCellR * OTAVCA(vp, vn, i_reso);
-            simd::float_4 in = inputs[0] * kFilterInputGain + res;
+            float in = inputs[0] * kFilterInputGain + res;
 
-            // Replace lowest element of vin with lowest element from in
-            vin = _mm_move_ss(vin.v, in.v);
+            // Rotate/insert into (in, v0, v1, v2) without x86 intrinsics.
+            simd::float_4 vin(in, vout[0], vout[1], vout[2]);
 
             // Now, vin contains (in, v0, v1, v2)
             // and vout contains (v0, v1, v2, v3)

@@ -1,0 +1,10 @@
+[project]
+name = "ripples"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "cog>=0.16.11",
+    "scipy>=1.17.0",
+]
