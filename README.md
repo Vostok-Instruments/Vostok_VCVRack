@@ -16,3 +16,13 @@ This project uses a modified version of the [Ripples filter](https://github.com/
 
 * Original module concept, design and development - @Vostok_Instruments 
 * DSP software implementation - @hemmer / [A Forest Full of Sines](https://aforestfullofsines.com/)
+
+# Vostok Instruments for MetaModule
+
+This repo also contains the work in progress attempt to port VostokModules to the MetaModule, `v2-mm` branch. To build:
+
+```
+cd metamodule
+cmake -B build -G Ninja
+cmake --build build
+```
