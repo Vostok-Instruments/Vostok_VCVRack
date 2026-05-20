@@ -1,42 +1,23 @@
-#include "plugin.hpp"
 #include "ChowDSP.hpp"
+#include "plugin.hpp"
 
 using simd::float_4;
 using simd::Vector;
-
 
 struct Hive : Module {
 
 	static const int NUM_CHANNELS = 4;
 
-	enum ParamId {
-		ENUMS(GAIN_PARAM, NUM_CHANNELS),
-		ENUMS(PAN_PARAM, NUM_CHANNELS),
-		MASTER_PARAM,
-		PARAMS_LEN
-	};
+	enum ParamId { ENUMS(GAIN_PARAM, NUM_CHANNELS), ENUMS(PAN_PARAM, NUM_CHANNELS), MASTER_PARAM, PARAMS_LEN };
 	enum InputId {
 		ENUMS(LEFT_INPUT, NUM_CHANNELS),
 		ENUMS(RIGHT_INPUT, NUM_CHANNELS),
 		ENUMS(PAN_INPUT, NUM_CHANNELS),
 		INPUTS_LEN
 	};
-	enum OutputId {
-		LEFT_OUTPUT,
-		RIGHT_OUTPUT,
-		OUTPUTS_LEN
-	};
-	enum LightId {
-		ENUMS(NUM_LIGHT, NUM_CHANNELS * 2),
-		LEFT_LIGHT,
-		RIGHT_LIGHT,
-		LIGHTS_LEN
-	};
-	enum StereoSide {
-		LEFT = 0,
-		RIGHT = 1,
-		NUM_SIDES = 2
-	};
+	enum OutputId { LEFT_OUTPUT, RIGHT_OUTPUT, OUTPUTS_LEN };
+	enum LightId { ENUMS(NUM_LIGHT, NUM_CHANNELS * 2), LEFT_LIGHT, RIGHT_LIGHT, LIGHTS_LEN };
+	enum StereoSide { LEFT = 0, RIGHT = 1, NUM_SIDES = 2 };
 
 	struct ExpanderMessage {
 		float leftSum = 0.f;
@@ -87,53 +68,46 @@ struct Hive : Module {
 		dcBlockFilter[1].reset();
 	}
 
-	void process(const ProcessArgs& args) override {
+	void process(const ProcessArgs &args) override {
 
 		// Get input from left expander if present
 		float expanderLeftSum = 0.f;
 		float expanderRightSum = 0.f;
 
-		const ExpanderMessage* leftExpanderData = (ExpanderMessage*) getLeftExpander().consumerMessage;
-		Module* leftModule = getLeftExpander().module;
+		const ExpanderMessage *leftExpanderData = (ExpanderMessage *)getLeftExpander().consumerMessage;
+		Module *leftModule = getLeftExpander().module;
 		if (leftModule && leftModule->getModel() == modelHive && leftExpanderData) {
 			expanderLeftSum = leftExpanderData->leftSum;
 			expanderRightSum = leftExpanderData->rightSum;
 			expanderActive = leftExpanderData->chainActive;
-		}
-		else {
+		} else {
 			expanderActive = false;
 		}
 
-		float_4 leftIns = float_4(
-		                    inputs[LEFT_INPUT + 0].getVoltage(),
-		                    inputs[LEFT_INPUT + 1].getVoltage(),
-		                    inputs[LEFT_INPUT + 2].getVoltage(),
-		                    inputs[LEFT_INPUT + 3].getVoltage());
+		float_4 leftIns = float_4(inputs[LEFT_INPUT + 0].getVoltage(),
+								  inputs[LEFT_INPUT + 1].getVoltage(),
+								  inputs[LEFT_INPUT + 2].getVoltage(),
+								  inputs[LEFT_INPUT + 3].getVoltage());
 
-		float_4 rightIns = float_4(
-		                     inputs[RIGHT_INPUT + 0].getNormalVoltage(inputs[LEFT_INPUT + 0].getVoltage()),
-		                     inputs[RIGHT_INPUT + 1].getNormalVoltage(inputs[LEFT_INPUT + 1].getVoltage()),
-		                     inputs[RIGHT_INPUT + 2].getNormalVoltage(inputs[LEFT_INPUT + 2].getVoltage()),
-		                     inputs[RIGHT_INPUT + 3].getNormalVoltage(inputs[LEFT_INPUT + 3].getVoltage()));
+		float_4 rightIns = float_4(inputs[RIGHT_INPUT + 0].getNormalVoltage(inputs[LEFT_INPUT + 0].getVoltage()),
+								   inputs[RIGHT_INPUT + 1].getNormalVoltage(inputs[LEFT_INPUT + 1].getVoltage()),
+								   inputs[RIGHT_INPUT + 2].getNormalVoltage(inputs[LEFT_INPUT + 2].getVoltage()),
+								   inputs[RIGHT_INPUT + 3].getNormalVoltage(inputs[LEFT_INPUT + 3].getVoltage()));
 
-		float_4 panCvIns = float_4(
-		                     inputs[PAN_INPUT + 0].getVoltage(),
-		                     inputs[PAN_INPUT + 1].getVoltage(),
-		                     inputs[PAN_INPUT + 2].getVoltage(),
-		                     inputs[PAN_INPUT + 3].getVoltage());
-		float_4 panParams = float_4(
-		                      params[PAN_PARAM + 0].getValue(),
-		                      params[PAN_PARAM + 1].getValue(),
-		                      params[PAN_PARAM + 2].getValue(),
-		                      params[PAN_PARAM + 3].getValue());
+		float_4 panCvIns = float_4(inputs[PAN_INPUT + 0].getVoltage(),
+								   inputs[PAN_INPUT + 1].getVoltage(),
+								   inputs[PAN_INPUT + 2].getVoltage(),
+								   inputs[PAN_INPUT + 3].getVoltage());
+		float_4 panParams = float_4(params[PAN_PARAM + 0].getValue(),
+									params[PAN_PARAM + 1].getValue(),
+									params[PAN_PARAM + 2].getValue(),
+									params[PAN_PARAM + 3].getValue());
 		float_4 pan = simd::clamp(panParams + panCvIns / 2.5f, -1.f, 1.f);
 
-		float_4 gains = float_4(
-		                  params[GAIN_PARAM + 0].getValue(),
-		                  params[GAIN_PARAM + 1].getValue(),
-		                  params[GAIN_PARAM + 2].getValue(),
-		                  params[GAIN_PARAM + 3].getValue());
-
+		float_4 gains = float_4(params[GAIN_PARAM + 0].getValue(),
+								params[GAIN_PARAM + 1].getValue(),
+								params[GAIN_PARAM + 2].getValue(),
+								params[GAIN_PARAM + 3].getValue());
 
 		// mixer is AC coupled (by default)
 		if (acCoupling) {
@@ -178,9 +152,9 @@ struct Hive : Module {
 		}
 
 		// Send output to right expander
-		Module* rightModule = getRightExpander().module;
+		Module *rightModule = getRightExpander().module;
 		if (rightModule && rightModule->getModel() == modelHive) {
-			ExpanderMessage* expanderMessage = (ExpanderMessage*) rightModule->getLeftExpander().producerMessage;
+			ExpanderMessage *expanderMessage = (ExpanderMessage *)rightModule->getLeftExpander().producerMessage;
 
 			const bool chainActive = !outputs[LEFT_OUTPUT].isConnected() && !outputs[RIGHT_OUTPUT].isConnected();
 			// it has to be already active, and not patched out
@@ -195,29 +169,24 @@ struct Hive : Module {
 		}
 	}
 
-	json_t* dataToJson() override {
-		json_t* rootJ = json_object();
+	json_t *dataToJson() override {
+		json_t *rootJ = json_object();
 		json_object_set_new(rootJ, "clipOutput", json_boolean(clipOutput));
 		json_object_set_new(rootJ, "acCoupling", json_boolean(acCoupling));
 		return rootJ;
 	}
 
-	void dataFromJson(json_t* rootJ) override {
-		json_t* clipOutputJ = json_object_get(rootJ, "clipOutput");
-		if (clipOutputJ) {
-			clipOutput = json_is_true(clipOutputJ);
-		}
+	void dataFromJson(json_t *rootJ) override {
+		json_t *clipOutputJ = json_object_get(rootJ, "clipOutput");
+		if (clipOutputJ) { clipOutput = json_is_true(clipOutputJ); }
 
-		json_t* acCouplingJ = json_object_get(rootJ, "acCoupling");
-		if (acCouplingJ) {
-			acCoupling = json_is_true(acCouplingJ);
-		}
+		json_t *acCouplingJ = json_object_get(rootJ, "acCoupling");
+		if (acCouplingJ) { acCoupling = json_is_true(acCouplingJ); }
 	}
 };
 
-
 struct HiveWidget : ModuleWidget {
-	HiveWidget(Hive* module) {
+	HiveWidget(Hive *module) {
 		setModule(module);
 		setPanel(createPanel(asset::plugin(pluginInstance, "res/panels/Hive.svg")));
 
@@ -230,10 +199,14 @@ struct HiveWidget : ModuleWidget {
 
 		const float gap = 33.752 - 15.396;
 		for (int i = 0; i < Hive::NUM_CHANNELS; ++i) {
-			addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.615, 15.396 + gap * i)), module, Hive::LEFT_INPUT + i));
-			addInput(createInputCentered<PJ301MPort>(mm2px(Vec(15.815, 15.403 + gap * i)), module, Hive::RIGHT_INPUT + i));
-			addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(27.502, 15.303 + gap * i)), module, Hive::GAIN_PARAM + i));
-			addParam(createParamCentered<RoundBlackKnob>(mm2px(Vec(42.002, 15.303 + gap * i)),  module, Hive::PAN_PARAM + i));
+			addInput(
+				createInputCentered<PJ301MPort>(mm2px(Vec(6.615, 15.396 + gap * i)), module, Hive::LEFT_INPUT + i));
+			addInput(
+				createInputCentered<PJ301MPort>(mm2px(Vec(15.815, 15.403 + gap * i)), module, Hive::RIGHT_INPUT + i));
+			addParam(createParamCentered<RoundBlackKnob>(
+				mm2px(Vec(27.502, 15.303 + gap * i)), module, Hive::GAIN_PARAM + i));
+			addParam(
+				createParamCentered<RoundBlackKnob>(mm2px(Vec(42.002, 15.303 + gap * i)), module, Hive::PAN_PARAM + i));
 		}
 
 		addInput(createInputCentered<PJ301MPort>(mm2px(Vec(6.615, 96.403)), module, Hive::PAN_INPUT + 0));
@@ -244,40 +217,43 @@ struct HiveWidget : ModuleWidget {
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(27.615, 96.403)), module, Hive::LEFT_OUTPUT));
 		addOutput(createOutputCentered<PJ301MPort>(mm2px(Vec(27.615, 111.403)), module, Hive::RIGHT_OUTPUT));
 
-		addChild(createLight<VostokUpperWhiteNumberLed<1>>(mm2px(Vec(31.994 + 2.f, -8.f + 19.259)), module, Hive::NUM_LIGHT + 2 * 0 + 0)); 	// white top
-		addChild(createLight<VostokUpperWhiteNumberLed<2>>(mm2px(Vec(31.994 + 2.f, -8.f + 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 0));
-		addChild(createLight<VostokUpperWhiteNumberLed<3>>(mm2px(Vec(31.607 + 2.f, -8.f + 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 0));
-		addChild(createLight<VostokUpperWhiteNumberLed<4>>(mm2px(Vec(31.607 + 2.f, -8.f + 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 0));
+		addChild(createLight<VostokUpperWhiteNumberLed<1>>(
+			mm2px(Vec(31.994 + 2.f, -8.f + 19.259)), module, Hive::NUM_LIGHT + 2 * 0 + 0)); // white top
+		addChild(createLight<VostokUpperWhiteNumberLed<2>>(
+			mm2px(Vec(31.994 + 2.f, -8.f + 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 0));
+		addChild(createLight<VostokUpperWhiteNumberLed<3>>(
+			mm2px(Vec(31.607 + 2.f, -8.f + 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 0));
+		addChild(createLight<VostokUpperWhiteNumberLed<4>>(
+			mm2px(Vec(31.607 + 2.f, -8.f + 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 0));
 
-		addChild(createLight<VostokLowerOrangeNumberLed<1>>(mm2px(Vec(31.994 + 2.f, -2.f + 19.259)), module, Hive::NUM_LIGHT + 2 * 0 + 1)); 	// orange bottom
-		addChild(createLight<VostokLowerOrangeNumberLed<2>>(mm2px(Vec(31.994 + 2.f, -2.f + 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 1));
-		addChild(createLight<VostokLowerOrangeNumberLed<3>>(mm2px(Vec(31.607 + 2.f, -2.f + 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 1));
-		addChild(createLight<VostokLowerOrangeNumberLed<4>>(mm2px(Vec(31.607 + 2.f, -2.f + 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 1));
+		addChild(createLight<VostokLowerOrangeNumberLed<1>>(
+			mm2px(Vec(31.994 + 2.f, -2.f + 19.259)), module, Hive::NUM_LIGHT + 2 * 0 + 1)); // orange bottom
+		addChild(createLight<VostokLowerOrangeNumberLed<2>>(
+			mm2px(Vec(31.994 + 2.f, -2.f + 37.665)), module, Hive::NUM_LIGHT + 2 * 1 + 1));
+		addChild(createLight<VostokLowerOrangeNumberLed<3>>(
+			mm2px(Vec(31.607 + 2.f, -2.f + 56.040)), module, Hive::NUM_LIGHT + 2 * 2 + 1));
+		addChild(createLight<VostokLowerOrangeNumberLed<4>>(
+			mm2px(Vec(31.607 + 2.f, -2.f + 74.537)), module, Hive::NUM_LIGHT + 2 * 3 + 1));
 
 		addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(34.31, 100.043)), module, Hive::LEFT_LIGHT));
 		addChild(createLightCentered<SmallLight<RedLight>>(mm2px(Vec(34.31, 107.578)), module, Hive::RIGHT_LIGHT));
 	}
 
-	void appendContextMenu(Menu* menu) override {
-		Hive* hive = dynamic_cast<Hive*>(module);
+	void appendContextMenu(Menu *menu) override {
+		Hive *hive = dynamic_cast<Hive *>(module);
 		assert(hive);
 
 		menu->addChild(new MenuSeparator());
 
 		menu->addChild(new MenuSeparator());
-		menu->addChild(createSubmenuItem("Hardware compatibility", "",
-		[ = ](Menu * menu) {
+		menu->addChild(createSubmenuItem("Hardware compatibility", "", [=](Menu *menu) {
 			menu->addChild(createBoolPtrMenuItem("AC coupling", "", &hive->acCoupling));
 			menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &hive->clipOutput));
 		}));
 
 		// label to indicate expander chaining
-		if (hive->expanderActive) {
-			menu->addChild(createMenuLabel(string::f("Chained to Hive output on left")));
-		}
-
+		if (hive->expanderActive) { menu->addChild(createMenuLabel(string::f("Chained to Hive output on left"))); }
 	}
 };
 
-
-Model* modelHive = createModel<Hive, HiveWidget>("Hive");
+Model *modelHive = createModel<Hive, HiveWidget>("Hive");
