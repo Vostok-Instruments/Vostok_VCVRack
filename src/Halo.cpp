@@ -41,13 +41,15 @@ struct Halo : Module {
         config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
 
         for (int i = 0; i < NUM_ROWS; i++) {
-            configInput(FREQ_INPUT + i, "Frequency " + std::to_string(i + 1));
-            configOutput(TRI_OUTPUT + i, "Triangle Wave " + std::to_string(i + 1));
-            configOutput(SQUARE_OUTPUT + i, "Square Wave " + std::to_string(i + 1));
-            configSwitch(LO_HI_PARAM + i, 0.0f, 1.0f, 0.0f, "Frequency Range " + std::to_string(i + 1), {"Low", "High"});
-            configSwitch(TRI_SQUARE_PARAM + i, 0.0f, 1.0f, 0.0f, "Logic Waveform " + std::to_string(i + 1),
+            const char channelNumber = static_cast<char>('1' + i);
+            configInput(FREQ_INPUT + i, std::string{"Frequency "} + channelNumber);
+            configOutput(TRI_OUTPUT + i, std::string{"Triangle Wave "} + channelNumber);
+            configOutput(SQUARE_OUTPUT + i, std::string{"Square Wave "} + channelNumber);
+            configSwitch(LO_HI_PARAM + i, 0.0f, 1.0f, 0.0f, std::string{"Frequency Range "} + channelNumber,
+                         {"Low", "High"});
+            configSwitch(TRI_SQUARE_PARAM + i, 0.0f, 1.0f, 0.0f, std::string{"Logic Waveform "} + channelNumber,
                          {"Triangle", "Square"});
-            configParam(FREQ_PARAM + i, 0.0f, 1.0f, 0.5f, "Frequency " + std::to_string(i + 1));
+            configParam(FREQ_PARAM + i, 0.0f, 1.0f, 0.5f, std::string{"Frequency "} + channelNumber);
         }
 
         configOutput(AND12_OUTPUT, "Logical AND Channels 1 and 2");

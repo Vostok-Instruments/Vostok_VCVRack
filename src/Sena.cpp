@@ -174,6 +174,7 @@ struct Sena : Module {
         SAW,
         SQUARE
     };
+    static constexpr int waveformIndex(Waveform waveform) { return static_cast<int>(waveform); }
     enum RangeMode {
         LFO,
         VCO,
@@ -391,13 +392,13 @@ struct Sena : Module {
                 float foldAmount = 1.f - 0.5f * osBufferMod[i][SINE]; // fold amount for sine wave
                 float sine = analogSine(phase[0]);
                 // only bother using antiderivative antialiasing for sine if the output is connected
-                bool useAdaaForSin = useAdaa && outputs[OUT1_OUTPUT + SINE].isConnected();
+                bool useAdaaForSin = useAdaa && outputs[OUT1_OUTPUT + waveformIndex(SINE)].isConnected();
                 osBufferOutput[i][SINE] = stage2.process(stage1.process(sine, foldAmount, useAdaaForSin), useAdaaForSin);
             }
 
             // triangle
             {
-                if (lowFreqRegime[TRIANGLE] || !useAdaa || !outputs[OUT1_OUTPUT + TRIANGLE].isConnected()) {
+                if (lowFreqRegime[TRIANGLE] || !useAdaa || !outputs[OUT1_OUTPUT + waveformIndex(TRIANGLE)].isConnected()) {
                     osBufferOutput[i][TRIANGLE] = 1.0 - 2.0 * std::abs(2 * phase[TRIANGLE] - 1.0);
                 } else {
                     osBufferOutput[i][TRIANGLE] = aliasSuppressedTri(phases, TRIANGLE) * denominatorInv[TRIANGLE];
@@ -414,7 +415,7 @@ struct Sena : Module {
                 offsetPhase -= std::floor(offsetPhase);               // ensure within [0, 1]
 
                 // use cheap version for low frequencies, or when ADAA is disabled, or if only used for LEDs
-                if (lowFreqRegime[SAW] || !useAdaa || !outputs[OUT1_OUTPUT + SAW].isConnected()) {
+                if (lowFreqRegime[SAW] || !useAdaa || !outputs[OUT1_OUTPUT + waveformIndex(SAW)].isConnected()) {
                     float saw1 = 2.f * phase[SAW] - 1.f;
                     float saw2 = 2.f * offsetPhase - 1.f;
                     osBufferOutput[i][SAW] = (saw1 - 0.1 * saw2);
@@ -431,7 +432,7 @@ struct Sena : Module {
                 const float pulseDCOffset = (!removePulseDC) * 2.f * (0.5f - pulseWidth);
 
                 // use cheap version for low frequencies, or when ADAA is disabled, or if only used for LEDs
-                if (lowFreqRegime[SQUARE] || !useAdaa || !outputs[OUT1_OUTPUT + SQUARE].isConnected()) {
+                if (lowFreqRegime[SQUARE] || !useAdaa || !outputs[OUT1_OUTPUT + waveformIndex(SQUARE)].isConnected()) {
                     // simple square wave
                     float square = (phase[SQUARE] < 1 - pulseWidth) ? +1.f : -1.f;
                     osBufferOutput[i][SQUARE] = square;
@@ -448,17 +449,19 @@ struct Sena : Module {
         // outputs and lights
         {
             float_4 isLfo =
-                float_4(params[VCO_LFO_MODE1_PARAM + SINE].getValue(), params[VCO_LFO_MODE1_PARAM + TRIANGLE].getValue(),
-                        params[VCO_LFO_MODE1_PARAM + SAW].getValue(), params[VCO_LFO_MODE1_PARAM + SQUARE].getValue()) < 0.5f;
+                float_4(params[VCO_LFO_MODE1_PARAM + waveformIndex(SINE)].getValue(),
+                        params[VCO_LFO_MODE1_PARAM + waveformIndex(TRIANGLE)].getValue(),
+                        params[VCO_LFO_MODE1_PARAM + waveformIndex(SAW)].getValue(),
+                        params[VCO_LFO_MODE1_PARAM + waveformIndex(SQUARE)].getValue()) < 0.5f;
 
             float_4 out = 5.f * ((oversamplingRatio > 1) ? oversamplerOutput.downsample() : osBufferOutput[0]);
             // if LFO, use the first oversampling sample to avoid bandliming artifacts in the LFO range
             out = simd::ifelse(isLfo, 5 * osBufferOutput[0], out);
 
-            outputs[OUT1_OUTPUT + SINE].setVoltage(out[SINE]);
-            outputs[OUT1_OUTPUT + TRIANGLE].setVoltage(out[TRIANGLE]);
-            outputs[OUT1_OUTPUT + SAW].setVoltage(out[SAW]);
-            outputs[OUT1_OUTPUT + SQUARE].setVoltage(out[SQUARE]);
+            outputs[OUT1_OUTPUT + waveformIndex(SINE)].setVoltage(out[SINE]);
+            outputs[OUT1_OUTPUT + waveformIndex(TRIANGLE)].setVoltage(out[TRIANGLE]);
+            outputs[OUT1_OUTPUT + waveformIndex(SAW)].setVoltage(out[SAW]);
+            outputs[OUT1_OUTPUT + waveformIndex(SQUARE)].setVoltage(out[SQUARE]);
 
             if (doUpdate) {
                 const float sampleTimeLights = args.sampleTime * lightUpdateRate;
@@ -516,8 +519,10 @@ struct Sena : Module {
     void setupSlowSimdBuffers() {
 
         // work out which channels use linear FM
-        isLinearFm = float_4(params[VOCT_FM1_PARAM + SINE].getValue(), params[VOCT_FM1_PARAM + TRIANGLE].getValue(),
-                             params[VOCT_FM1_PARAM + SAW].getValue(), params[VOCT_FM1_PARAM + SQUARE].getValue()) > 0.5f;
+        isLinearFm = float_4(params[VOCT_FM1_PARAM + waveformIndex(SINE)].getValue(),
+                             params[VOCT_FM1_PARAM + waveformIndex(TRIANGLE)].getValue(),
+                             params[VOCT_FM1_PARAM + waveformIndex(SAW)].getValue(),
+                             params[VOCT_FM1_PARAM + waveformIndex(SQUARE)].getValue()) > 0.5f;
 
         // setup the frequency ranges for each channel
         for (int i = 0; i < NUM_CHANNELS; ++i) {
@@ -542,8 +547,10 @@ struct Sena : Module {
             getParamQuantity(FREQ1_PARAM + i)->defaultValue = (tuneMode == COARSE) ? defaultFreqCoarse : 0.5f;
         }
 
-        const float_4 frequencyPots = float_4(params[FREQ1_PARAM + SINE].getValue(), params[FREQ1_PARAM + TRIANGLE].getValue(),
-                                              params[FREQ1_PARAM + SAW].getValue(), params[FREQ1_PARAM + SQUARE].getValue());
+        const float_4 frequencyPots = float_4(params[FREQ1_PARAM + waveformIndex(SINE)].getValue(),
+                                              params[FREQ1_PARAM + waveformIndex(TRIANGLE)].getValue(),
+                                              params[FREQ1_PARAM + waveformIndex(SAW)].getValue(),
+                                              params[FREQ1_PARAM + waveformIndex(SQUARE)].getValue());
 
         frequencyPotsPitch = simd::rescale(frequencyPots, 0.f, 1.f, simd::log2(frequencyMins), simd::log2(frequencyMaxes));
     }
@@ -552,8 +559,10 @@ struct Sena : Module {
         const int oversamplingRatio = oversamplerFM.getOversamplingRatio();
 
         // upsample FM inputs (if any are connected), performance is the same whether it's 1 channel or 4 because of simd
-        if (inputs[VOCT1_INPUT + SINE].isConnected() || inputs[VOCT1_INPUT + TRIANGLE].isConnected() ||
-            inputs[VOCT1_INPUT + SAW].isConnected() || inputs[VOCT1_INPUT + SQUARE].isConnected()) {
+        if (inputs[VOCT1_INPUT + waveformIndex(SINE)].isConnected() ||
+            inputs[VOCT1_INPUT + waveformIndex(TRIANGLE)].isConnected() ||
+            inputs[VOCT1_INPUT + waveformIndex(SAW)].isConnected() ||
+            inputs[VOCT1_INPUT + waveformIndex(SQUARE)].isConnected()) {
 
             float_4 fmInputs;
 
@@ -580,22 +589,29 @@ struct Sena : Module {
         // get pot values for the mode inputs
 
         // upsample mode inputs (if any are connected)
-        if (inputs[MOD1_INPUT + SINE].isConnected() || inputs[MOD1_INPUT + TRIANGLE].isConnected() ||
-            inputs[MOD1_INPUT + SAW].isConnected() || inputs[MOD1_INPUT + SQUARE].isConnected()) {
+        if (inputs[MOD1_INPUT + waveformIndex(SINE)].isConnected() ||
+            inputs[MOD1_INPUT + waveformIndex(TRIANGLE)].isConnected() ||
+            inputs[MOD1_INPUT + waveformIndex(SAW)].isConnected() ||
+            inputs[MOD1_INPUT + waveformIndex(SQUARE)].isConnected()) {
 
-            float_4 modOffsets = float_4(params[MOD1_PARAM + SINE].getValue(), params[MOD1_PARAM + TRIANGLE].getValue(),
-                                         params[MOD1_PARAM + SAW].getValue(), 0.f);
-            float_4 modScales = float_4(1.f, 1.f, 1.f, params[MOD1_PARAM + SQUARE].getValue());
+            float_4 modOffsets = float_4(params[MOD1_PARAM + waveformIndex(SINE)].getValue(),
+                                         params[MOD1_PARAM + waveformIndex(TRIANGLE)].getValue(),
+                                         params[MOD1_PARAM + waveformIndex(SAW)].getValue(), 0.f);
+            float_4 modScales = float_4(1.f, 1.f, 1.f, params[MOD1_PARAM + waveformIndex(SQUARE)].getValue());
 
-            float_4 modInputs = float_4(inputs[MOD1_INPUT + SINE].getVoltage(), inputs[MOD1_INPUT + TRIANGLE].getVoltage(),
-                                        inputs[MOD1_INPUT + SAW].getVoltage(), inputs[MOD1_INPUT + SQUARE].getVoltage());
+            float_4 modInputs = float_4(inputs[MOD1_INPUT + waveformIndex(SINE)].getVoltage(),
+                                        inputs[MOD1_INPUT + waveformIndex(TRIANGLE)].getVoltage(),
+                                        inputs[MOD1_INPUT + waveformIndex(SAW)].getVoltage(),
+                                        inputs[MOD1_INPUT + waveformIndex(SQUARE)].getVoltage());
 
             // combination of pot and CV controls the mods in range [0, 1]
             modInputs = simd::clamp(simd::clamp(modInputs / 10.f, -1.f, 1.f) * modScales + modOffsets, 0.f, 1.f);
             oversamplerMode.upsample(modInputs);
         } else {
-            float_4 modPots = float_4(params[MOD1_PARAM + SINE].getValue(), params[MOD1_PARAM + TRIANGLE].getValue(),
-                                      params[MOD1_PARAM + SAW].getValue(), params[MOD1_PARAM + SQUARE].getValue());
+            float_4 modPots = float_4(params[MOD1_PARAM + waveformIndex(SINE)].getValue(),
+                                      params[MOD1_PARAM + waveformIndex(TRIANGLE)].getValue(),
+                                      params[MOD1_PARAM + waveformIndex(SAW)].getValue(),
+                                      params[MOD1_PARAM + waveformIndex(SQUARE)].getValue());
 
             std::fill(osBufferMod, &osBufferMod[oversamplingRatio], modPots);
         }
