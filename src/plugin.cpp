@@ -15,6 +15,7 @@ void init(Plugin *p) {
     p->addModel(modelSena);
     p->addModel(modelHive);
     p->addModel(modelHalo);
+    p->addModel(modelSigma);
 }
 
 float_4 gainsForChannels(float routeValue) {

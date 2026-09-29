@@ -1,3 +1,4 @@
+#include "AtlasTptEngine.hpp"
 #include "plugin.hpp"
 #include "ripples.hpp"
 
@@ -38,18 +39,23 @@ struct Atlas : Module {
         FM2
     };
 
-    ripples::RipplesEngine engines[NUM_CHANNELS];
+    enum FilterEngine {
+        ACCURATE_CIRCUIT,
+        ECONOMY_TPT
+    };
+
+    ripples::RipplesEngine engines[NUM_CHANNELS][PORT_MAX_CHANNELS];
+    AtlasTptEngine4 tptSimdEngines[NUM_CHANNELS][PORT_MAX_CHANNELS / 4];
     dsp::ClockDivider lightDivider;
-    bool compensate = true;
     bool addLowend = true;
     bool clipOutput = true;
-
-    // not currently used, but future-proofing in case we improve the filter model
-    enum FilterSimulationType {
-        HEURISTIC,
-        CIRCUIT_BASED
-    };
-    FilterSimulationType filterSimulationType = HEURISTIC;
+    // New modules use the low-cost engine. dataFromJson() deliberately
+    // selects the existing engine for patches saved before this setting was
+    // introduced.
+    int filterEngine = ECONOMY_TPT;
+    int activeFilterEngine = -1;
+    int activeVoiceChannels[NUM_CHANNELS]{};
+    float currentSampleRate = 1.f;
 
     Atlas() {
         config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -82,101 +88,214 @@ struct Atlas : Module {
     void onSampleRateChange(const SampleRateChangeEvent &e) override { reset(e.sampleRate); }
 
     void reset(float sampleRate) {
-        for (int c = 0; c < NUM_CHANNELS; c++) {
-            engines[c].setSampleRate(sampleRate);
+        currentSampleRate = sampleRate;
+        for (int row = 0; row < NUM_CHANNELS; row++) {
+            activeVoiceChannels[row] = 0;
+            for (int voice = 0; voice < PORT_MAX_CHANNELS; voice++) {
+                engines[row][voice].setSampleRate(sampleRate);
+            }
+            for (int block = 0; block < PORT_MAX_CHANNELS / 4; block++) {
+                tptSimdEngines[row][block].setSampleRate(sampleRate);
+            }
         }
     }
 
     void process(const ProcessArgs &args) override {
 
-        // Reuse the same frame object for multiple engines because some params aren't touched.
-        ripples::RipplesEngine::Frame frame;
-        frame.fm_knob = 1.;
-        frame.addLowend = addLowend;
-        frame.clipOutputs = clipOutput;
+        bool resetForSampleRate = false;
+        if (currentSampleRate != args.sampleRate) {
+            reset(args.sampleRate);
+            resetForSampleRate = true;
+        }
+        filterEngine = clamp(filterEngine, static_cast<int>(ACCURATE_CIRCUIT), static_cast<int>(ECONOMY_TPT));
+        if (filterEngine != activeFilterEngine) {
+            if (!resetForSampleRate) {
+                reset(args.sampleRate);
+            }
+            activeFilterEngine = filterEngine;
+        }
 
         const bool updateLeds = lightDivider.process();
+        float normalInputs[PORT_MAX_CHANNELS]{};
+        float normalFrequencies[PORT_MAX_CHANNELS]{};
+        float rowOutputs[NUM_CHANNELS][PORT_MAX_CHANNELS]{};
+        int rowChannels[NUM_CHANNELS]{};
+        int normalInputChannels = 1;
+        int normalFrequencyChannels = 1;
+        int scanChannels = 1;
 
-        const float_4 resonanceKnob = float_4(params[RES1_PARAM + 0].getValue(), params[RES1_PARAM + 1].getValue(),
-                                              params[RES1_PARAM + 2].getValue(), params[RES1_PARAM + 3].getValue());
-        const float_4 resonanceCv =
-            simd::clamp(float_4(inputs[FM_RES1_INPUT + 0].getVoltage(), inputs[FM_RES1_INPUT + 1].getVoltage(),
-                                inputs[FM_RES1_INPUT + 2].getVoltage(), inputs[FM_RES1_INPUT + 3].getVoltage()) /
-                            5.f,
-                        -1.f, +1.f);
-        const float_4 cvDestinations = float_4(params[FM_RES_1_PARAM + 0].getValue(), params[FM_RES_1_PARAM + 1].getValue(),
-                                               params[FM_RES_1_PARAM + 2].getValue(), params[FM_RES_1_PARAM + 3].getValue());
+        for (int row = 0; row < NUM_CHANNELS; row++) {
+            const bool inputConnected = inputs[IN1_INPUT + row].isConnected();
+            const bool frequencyConnected = inputs[FREQ1_INPUT + row].isConnected();
+            const int inputChannels = inputConnected ? std::max(inputs[IN1_INPUT + row].getChannels(), 1) : normalInputChannels;
+            const int frequencyChannels =
+                frequencyConnected ? std::max(inputs[FREQ1_INPUT + row].getChannels(), 1) : normalFrequencyChannels;
+            const int modulationChannels = std::max(inputs[FM_RES1_INPUT + row].getChannels(), 1);
+            const int channels = std::min(std::max({inputChannels, frequencyChannels, modulationChannels}), PORT_MAX_CHANNELS);
+            rowChannels[row] = channels;
+            scanChannels = std::max(scanChannels, channels);
+            outputs[OUT1_OUTPUT + row].setChannels(channels);
+            const int oldActiveChannels = activeVoiceChannels[row];
+            for (int voice = oldActiveChannels; voice < channels; voice++) {
+                engines[row][voice].setSampleRate(currentSampleRate);
+            }
 
-        // max resonance is about 80% of the ripples model
-        const float_4 resonances =
-            clamp(0.8 * resonanceKnob + 0.9 * simd::ifelse(cvDestinations < 0.5, resonanceCv, 0.f), 0.f, 0.9f);
+            const CVDest cvDest = static_cast<CVDest>(params[FM_RES_1_PARAM + row].getValue());
+            const FilterMode mode = static_cast<FilterMode>(params[MODE1_PARAM + row].getValue());
+            const float frequencyScaled = rescale(params[FREQ1_PARAM + row].getValue(), std::log2(ripples::kFreqKnobMin),
+                                                  std::log2(ripples::kFreqKnobMax), 0.f, 1.f);
+            float lightVoltage = 0.f;
 
-        const float_4 frequencies(params[FREQ1_PARAM + 0].getValue(), params[FREQ1_PARAM + 1].getValue(),
-                                  params[FREQ1_PARAM + 2].getValue(), params[FREQ1_PARAM + 3].getValue());
-        const float_4 frequenciesScaled =
-            simd::rescale(frequencies, std::log2(ripples::kFreqKnobMin), std::log2(ripples::kFreqKnobMax), 0.f, 1.f);
+            // Economy is lane-independent, so process four voices at once.
+            // Reset only lanes whose active status changed; continuing voices
+            // retain their filter history across normal polyphony changes.
+            if (filterEngine == ECONOMY_TPT) {
+                for (int voice = std::min(oldActiveChannels, channels); voice < std::max(oldActiveChannels, channels);
+                     voice++) {
+                    tptSimdEngines[row][voice / 4].resetLane(voice % 4);
+                }
 
-        float normalInput = 0.f, normalFreqInput = 0.f;
-        float_4 outputs_4;
-        for (int i = 0; i < NUM_CHANNELS; i++) {
-            const CVDest cvDest = static_cast<CVDest>(params[FM_RES_1_PARAM + i].getValue());
-            const FilterMode mode = static_cast<FilterMode>(params[MODE1_PARAM + i].getValue());
+                const float resKnob = 0.8f * params[RES1_PARAM + row].getValue();
+                for (int voice = 0; voice < channels; voice += 4) {
+                    float_4 input = inputConnected ? inputs[IN1_INPUT + row].getPolyVoltageSimd<float_4>(voice)
+                                                   : float_4::load(normalInputs + voice);
+                    float_4 frequencyCv = frequencyConnected ? inputs[FREQ1_INPUT + row].getPolyVoltageSimd<float_4>(voice)
+                                                             : float_4::load(normalFrequencies + voice);
+                    float_4 modulationCv = inputs[FM_RES1_INPUT + row].getPolyVoltageSimd<float_4>(voice);
+                    float_4 resonanceCv = (cvDest == RES) ? simd::clamp(modulationCv / 5.f, -1.f, 1.f) : float_4::zero();
+                    float_4 fmCv = (cvDest == FM2) ? modulationCv : float_4::zero();
 
-            frame.res_knob = resonances[i];
-            frame.freq_knob = frequenciesScaled[i];
+                    // The final block may contain fewer than four active
+                    // voices.  Clear its inactive lanes before processing so
+                    // they cannot influence state or become stale output.
+                    for (int lane = std::max(channels - voice, 0); lane < 4; lane++) {
+                        input[lane] = 0.f;
+                        frequencyCv[lane] = 0.f;
+                        resonanceCv[lane] = 0.f;
+                        fmCv[lane] = 0.f;
+                    }
 
-            frame.fm_cv = (cvDest == FM2) ? inputs[FM_RES1_INPUT + i].getVoltage() : 0.f;
-            frame.freq_cv = inputs[FREQ1_INPUT + i].getNormalVoltage(normalFreqInput);
-            normalFreqInput = frame.freq_cv;
+                    float_4 output =
+                        tptSimdEngines[row][voice / 4].process(input, frequencyCv, fmCv, resonanceCv, frequencyScaled, resKnob,
+                                                               addLowend, true, clipOutput, static_cast<int>(mode));
+                    float outputValues[4];
+                    float inputValues[4];
+                    output.store(outputValues);
+                    input.store(inputValues);
+                    const int activeLanes = std::min(4, channels - voice);
+                    if (activeLanes == 4) {
+                        outputs[OUT1_OUTPUT + row].setVoltageSimd(output, voice);
+                    } else {
+                        for (int lane = 0; lane < activeLanes; lane++) {
+                            outputs[OUT1_OUTPUT + row].setVoltage(outputValues[lane], voice + lane);
+                        }
+                    }
+                    for (int lane = 0; lane < activeLanes; lane++) {
+                        rowOutputs[row][voice + lane] = outputValues[lane];
+                        lightVoltage = std::max(lightVoltage, std::abs(inputValues[lane]));
+                    }
+                }
+            } else {
+                for (int voice = 0; voice < channels; voice++) {
+                    const float input = inputConnected ? inputs[IN1_INPUT + row].getPolyVoltage(voice) : normalInputs[voice];
+                    const float frequencyCv =
+                        frequencyConnected ? inputs[FREQ1_INPUT + row].getPolyVoltage(voice) : normalFrequencies[voice];
+                    const float modulationCv = inputs[FM_RES1_INPUT + row].getPolyVoltage(voice);
+                    const float resonanceCv = (cvDest == RES) ? clamp(modulationCv / 5.f, -1.f, 1.f) : 0.f;
 
-            frame.input = (inputs[IN1_INPUT + i].isConnected() ? inputs[IN1_INPUT + i].getVoltageSum() : normalInput);
-            normalInput = frame.input;
+                    ripples::RipplesEngine::Frame frame;
+                    frame.fm_knob = 1.f;
+                    frame.addLowend = addLowend;
+                    frame.gainCompensation = true;
+                    frame.clipOutputs = clipOutput;
+                    frame.res_knob = clamp(0.8f * params[RES1_PARAM + row].getValue() + 0.9f * resonanceCv, 0.f, 0.9f);
+                    frame.freq_knob = frequencyScaled;
+                    frame.fm_cv = (cvDest == FM2) ? modulationCv : 0.f;
+                    frame.freq_cv = frequencyCv;
+                    frame.input = input;
 
-            engines[i].process(frame);
+                    engines[row][voice].process(frame);
 
-            // Atlas actually corrects for inverting effect
-            outputs_4[i] = -(mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : 0.5 * frame.hp2));
+                    // Atlas corrects the reference engine's inverting effect.
+                    const float output = -(mode == LP ? frame.lp4 : (mode == BP ? frame.bp4 : 0.5f * frame.hp2));
+                    rowOutputs[row][voice] = output;
+                    outputs[OUT1_OUTPUT + row].setVoltage(output, voice);
+                    lightVoltage = std::max(lightVoltage, std::abs(input));
+                }
+            }
 
-            outputs[OUT1_OUTPUT + i].setVoltage(outputs_4[i]);
+            activeVoiceChannels[row] = channels;
+
+            for (int voice = 0; voice < PORT_MAX_CHANNELS; voice++) {
+                normalInputs[voice] = inputConnected ? inputs[IN1_INPUT + row].getPolyVoltage(voice) : normalInputs[voice];
+                normalFrequencies[voice] =
+                    frequencyConnected ? inputs[FREQ1_INPUT + row].getPolyVoltage(voice) : normalFrequencies[voice];
+            }
+            normalInputChannels = inputChannels;
+            normalFrequencyChannels = frequencyChannels;
 
             if (updateLeds) {
                 const float sampleTime = args.sampleTime * lightUpdateRate;
-                lights[NUM1_LIGHT + i].setBrightnessSmooth(std::abs(normalInput / 5.f), sampleTime, lambda);
+                lights[NUM1_LIGHT + row].setBrightnessSmooth(lightVoltage / 5.f, sampleTime, lambda);
             }
         }
 
-        // Scan output
-        const float scanValue = clamp(params[SCAN_PARAM].getValue() + inputs[SCAN_IN_INPUT].getVoltage() / 10.f, 0.f, 1.f);
-
-        float_4 outGains = gainsForChannels(scanValue);
-        outputs_4 = outputs_4 * outGains;
-        const float scanOut = outputs_4[0] + outputs_4[1] + outputs_4[2] + outputs_4[3];
-        outputs[SCAN_OUT_OUTPUT].setVoltage(scanOut);
+        // Scan output. Mono Scan CV broadcasts; polyphonic Scan CV addresses
+        // the corresponding voice independently.
+        scanChannels = std::max(scanChannels, std::max(inputs[SCAN_IN_INPUT].getChannels(), 1));
+        outputs[SCAN_OUT_OUTPUT].setChannels(scanChannels);
+        for (int voice = 0; voice < scanChannels; voice++) {
+            const float scanValue =
+                clamp(params[SCAN_PARAM].getValue() + inputs[SCAN_IN_INPUT].getPolyVoltage(voice) / 10.f, 0.f, 1.f);
+            const float_4 outGains = gainsForChannels(scanValue);
+            float scanOut = 0.f;
+            for (int row = 0; row < NUM_CHANNELS; row++) {
+                const float rowOutput =
+                    rowChannels[row] == 1 ? rowOutputs[row][0] : (voice < rowChannels[row] ? rowOutputs[row][voice] : 0.f);
+                scanOut += rowOutput * outGains[row];
+            }
+            outputs[SCAN_OUT_OUTPUT].setVoltage(scanOut, voice);
+        }
     }
 
     json_t *dataToJson() override {
         json_t *rootJ = json_object();
-        json_object_set_new(rootJ, "gainCompensation", json_boolean(compensate));
         json_object_set_new(rootJ, "addLowend", json_boolean(addLowend));
-        json_object_set_new(rootJ, "filterSimulationType", json_integer(static_cast<int>(filterSimulationType)));
+        json_object_set_new(rootJ, "clipOutput", json_boolean(clipOutput));
+        const char *engineName = "accurate";
+        if (filterEngine == ECONOMY_TPT) {
+            engineName = "economy-tpt";
+        }
+        json_object_set_new(rootJ, "filterEngine", json_string(engineName));
 
         return rootJ;
     }
 
     void dataFromJson(json_t *rootJ) override {
-        json_t *jCompensate = json_object_get(rootJ, "gainCompensation");
-        if (jCompensate) {
-            compensate = json_boolean_value(jCompensate);
-        }
-
         json_t *jAddLowend = json_object_get(rootJ, "addLowend");
         if (jAddLowend) {
             addLowend = json_boolean_value(jAddLowend);
         }
 
-        json_t *jFilterSimulationType = json_object_get(rootJ, "filterSimulationType");
-        if (jFilterSimulationType) {
-            filterSimulationType = static_cast<FilterSimulationType>(json_integer_value(jFilterSimulationType));
+        json_t *jClipOutput = json_object_get(rootJ, "clipOutput");
+        if (jClipOutput) {
+            clipOutput = json_boolean_value(jClipOutput);
+        }
+
+        // Both values of Atlas' former hidden numeric selector used the
+        // existing circuit engine. A missing key therefore identifies a
+        // legacy patch and must retain its sound, while newly created modules
+        // keep the Economy default set by the member initializer.
+        json_t *jFilterEngine = json_object_get(rootJ, "filterEngine");
+        if (jFilterEngine && json_is_string(jFilterEngine)) {
+            const std::string value = json_string_value(jFilterEngine);
+            if (value == "economy-tpt") {
+                filterEngine = ECONOMY_TPT;
+            } else {
+                filterEngine = ACCURATE_CIRCUIT;
+            }
+        } else {
+            filterEngine = ACCURATE_CIRCUIT;
         }
     }
 };
@@ -230,11 +349,11 @@ struct AtlasWidget : ModuleWidget {
             menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &module->clipOutput));
         }));
 
+        menu->addChild(createIndexPtrSubmenuItem("Filter engine", {"Legacy circuit model (high CPU)", "Efficient module (low CPU)"},
+                                                 &module->filterEngine));
+
         // debug options only, don't expose to users yet
-        // menu->addChild(createBoolPtrMenuItem("Gain compensation (LP/BP only)", "", &module->compensate));
         // menu->addChild(createBoolPtrMenuItem("Add lowend to HP", "", &module->addLowend));
-        // menu->addChild(createIndexPtrSubmenuItem("Filter simulation type", {"Heuristic", "Circuit based"},
-        // &module->filterSimulationType));
     }
 };
 

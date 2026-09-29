@@ -36,6 +36,7 @@ struct Halo : Module {
     };
 
     float_4 phases = {};
+    dsp::ClockDivider lightDivider;
 
     Halo() {
         config(PARAMS_LEN, INPUTS_LEN, OUTPUTS_LEN, LIGHTS_LEN);
@@ -58,6 +59,14 @@ struct Halo : Module {
         configOutput(OR34_OUTPUT, "Logical OR Channels 3 and 4");
         configOutput(XOR34_OUTPUT, "Logical XOR Channels 3 and 4");
         configOutput(MIX34_OUTPUT, "Mixed Output Channels 3 and 4");
+
+        lightDivider.setDivision(lightUpdateRate);
+    }
+
+    void onReset(const ResetEvent &e) override {
+        Module::onReset(e);
+        phases = float_4::zero();
+        lightDivider.reset();
     }
 
     // low mode
@@ -91,6 +100,7 @@ struct Halo : Module {
             float_4(params[TRI_SQUARE_PARAM + 0].getValue(), params[TRI_SQUARE_PARAM + 1].getValue(),
                     params[TRI_SQUARE_PARAM + 2].getValue(), params[TRI_SQUARE_PARAM + 3].getValue()) > 0.5f;
         const float_4 waveformForLogic = ifelse(useSquare, square, tri);
+        const bool updateLights = lightDivider.process();
 
         // Process each LFO channel
         for (int i = 0; i < NUM_ROWS; i++) {
@@ -98,7 +108,10 @@ struct Halo : Module {
             outputs[TRI_OUTPUT + i].setVoltage(tri[i]);
             outputs[SQUARE_OUTPUT + i].setVoltage(square[i]);
 
-            lights[NUM_LIGHT + i].setBrightnessSmooth((waveformForLogic[i] + 5.f) / 10.f, args.sampleTime, 15.f);
+            if (updateLights) {
+                lights[NUM_LIGHT + i].setBrightnessSmooth((waveformForLogic[i] + 5.f) / 10.f, args.sampleTime * lightUpdateRate,
+                                                          lambda);
+            }
         }
 
         // Logic operations for channels 1-2

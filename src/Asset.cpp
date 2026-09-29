@@ -46,7 +46,6 @@ struct Asset : Module {
     void process(const ProcessArgs &args) override {
 
         const bool doUpdate = lightDivider.process();
-        const float sampleTime = args.sampleTime * lightUpdateRate;
 
         float normalVoltage = 0.f;
         for (int i = 0; i < NUM_CHANNELS; i++) {
@@ -69,6 +68,7 @@ struct Asset : Module {
             outputs[OUT1_OUTPUT + i].setVoltage(out);
 
             if (doUpdate) {
+                const float sampleTime = args.sampleTime * lightUpdateRate;
                 // orange for positive, blue for negative
                 lights[NUM1_LIGHT + 2 * i + 0].setBrightnessSmooth(out > 0.f ? +out / 5.f : 0.f, sampleTime, lambda);
                 lights[NUM1_LIGHT + 2 * i + 1].setBrightnessSmooth(out < 0.f ? -out / 5.f : 0.f, sampleTime, lambda);

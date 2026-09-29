@@ -21,6 +21,7 @@ class FoldStage1 {
             xPrev = x;
             return y;
         } else {
+            xPrev = x;
             return f(x, t);
         }
     }
@@ -53,6 +54,7 @@ class FoldStage2 {
             xPrev = x;
             return y;
         } else {
+            xPrev = x;
             return f(x);
         }
     }
@@ -97,6 +99,7 @@ class HardClip {
             xPrev = x;
             return y;
         } else {
+            xPrev = x;
             return f(x);
         }
     }
@@ -198,7 +201,7 @@ struct Sena : Module {
 
     // noise parts
     PinkNoiseGenerator pinkNoiseGenerator;
-    float lastBrown = 0.f;
+    PinkNoiseGenerator brownPinkNoiseGenerator;
     float lastPink = 0.f;
     PinkNoiseGenerator pinkNoiseGenerator2;
     chowdsp::BiquadFilter noiseDcBlockFilter;
@@ -281,6 +284,21 @@ struct Sena : Module {
         configOutput(BROWN_OUTPUT, "Brown Noise (-6dB/oct)");
 
         lightDivider.setDivision(lightUpdateRate);
+        lightDivider.clock = lightDivider.division - 1;
+    }
+
+    void onReset(const ResetEvent &e) override {
+        Module::onReset(e);
+        phase = float_4::zero();
+        pinkNoiseGenerator = {};
+        brownPinkNoiseGenerator = {};
+        pinkNoiseGenerator2 = {};
+        lastPink = 0.f;
+        for (int i = 0; i < NUM_CHANNELS; i++) {
+            tuneModes[i] = COARSE;
+        }
+        onSampleRateChange();
+        lightDivider.clock = lightDivider.division - 1;
     }
 
     void onSampleRateChange() override {
@@ -495,16 +513,16 @@ struct Sena : Module {
             if (outputs[BLUE_OUTPUT].isConnected()) {
                 // apply a +6dB/oct filter to the pink noise (which is -3dB/oct) to get a +3dB/oct blue noise
                 float blue = (pink - lastPink) * 0.25f * (APP->engine->getSampleRate() / 44100.f);
-                lastPink = pink;
                 outputs[BLUE_OUTPUT].setVoltage(blue);
             }
+            lastPink = pink;
         }
 
         if (outputs[BROWN_OUTPUT].isConnected()) {
             // Brown noise: -6dB/oct
             float white = 0.25 * random::normal();
             // apply a -3dB/oct filter to the white noise to get pink noise, and again to get -6dB/oct brown noise
-            float pink = pinkNoiseGenerator.process(white);
+            float pink = brownPinkNoiseGenerator.process(white);
             float brown = pinkNoiseGenerator2.process(pink);
             // need to mitigate high energy at DC, so filter here
             brown = noiseDcBlockFilter.process(brown);
@@ -615,7 +633,8 @@ struct Sena : Module {
     void dataFromJson(json_t *rootJ) override {
         json_t *jOversamplingIndex = json_object_get(rootJ, "oversamplingIndex");
         if (jOversamplingIndex) {
-            oversamplingIndex = json_integer_value(jOversamplingIndex);
+            // Preserve the implemented x16 mode for older/manual patches even though the current menu exposes up to x8.
+            oversamplingIndex = clamp(static_cast<int>(json_integer_value(jOversamplingIndex)), 0, 4);
             onSampleRateChange();
         }
 
