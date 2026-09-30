@@ -107,7 +107,11 @@ struct Atlas : Module {
             reset(args.sampleRate);
             resetForSampleRate = true;
         }
+#if defined(METAMODULE) || defined(METAMODULE_BUILTIN)
+        filterEngine = ECONOMY_TPT;
+#else
         filterEngine = clamp(filterEngine, static_cast<int>(ACCURATE_CIRCUIT), static_cast<int>(ECONOMY_TPT));
+#endif
         if (filterEngine != activeFilterEngine) {
             if (!resetForSampleRate) {
                 reset(args.sampleRate);
@@ -262,10 +266,14 @@ struct Atlas : Module {
         json_t *rootJ = json_object();
         json_object_set_new(rootJ, "addLowend", json_boolean(addLowend));
         json_object_set_new(rootJ, "clipOutput", json_boolean(clipOutput));
+#if defined(METAMODULE) || defined(METAMODULE_BUILTIN)
+        const char *engineName = "economy-tpt";
+#else
         const char *engineName = "accurate";
         if (filterEngine == ECONOMY_TPT) {
             engineName = "economy-tpt";
         }
+#endif
         json_object_set_new(rootJ, "filterEngine", json_string(engineName));
 
         return rootJ;
@@ -282,6 +290,11 @@ struct Atlas : Module {
             clipOutput = json_boolean_value(jClipOutput);
         }
 
+#if defined(METAMODULE) || defined(METAMODULE_BUILTIN)
+        // MetaModule always uses the lower-cost engine, including for legacy
+        // patches whose saved data has no engine key.
+        filterEngine = ECONOMY_TPT;
+#else
         // Both values of Atlas' former hidden numeric selector used the
         // existing circuit engine. A missing key therefore identifies a
         // legacy patch and must retain its sound, while newly created modules
@@ -297,6 +310,7 @@ struct Atlas : Module {
         } else {
             filterEngine = ACCURATE_CIRCUIT;
         }
+#endif
     }
 };
 
@@ -349,8 +363,10 @@ struct AtlasWidget : ModuleWidget {
             menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &module->clipOutput));
         }));
 
+#if !defined(METAMODULE) && !defined(METAMODULE_BUILTIN)
         menu->addChild(createIndexPtrSubmenuItem("Filter engine", {"Legacy circuit model (high CPU)", "Efficient module (low CPU)"},
                                                  &module->filterEngine));
+#endif
 
         // debug options only, don't expose to users yet
         // menu->addChild(createBoolPtrMenuItem("Add lowend to HP", "", &module->addLowend));
