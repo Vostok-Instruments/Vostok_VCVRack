@@ -70,7 +70,7 @@ template <int ORDER, typename T = float> struct IIRFilter {
             T p = -i * s;
             std::complex<T> z(simd::cos(p), simd::sin(p));
             bSum += b[i] * z;
-            aSum += a[i - 1] * z;
+            aSum += a[i] * z;
         }
         return bSum / aSum;
     }
@@ -197,8 +197,7 @@ template <typename T = float> struct TBiquadFilter : IIRFilter<3, T> {
             this->a[2] = (1.f - K / Q + K * K) * norm;
         } break;
 
-        default:
-            break;
+        default: break;
         }
     }
 };
@@ -242,6 +241,7 @@ template <int N, typename T> class AAFilter {
 
         for (int i = 0; i < N; ++i) {
             filters[i].setParameters(TBiquadFilter<T>::Type::LOWPASS, fc / (osRatio * sampleRate), Qs[i], 1.0f);
+            filters[i].reset();
         }
     }
 

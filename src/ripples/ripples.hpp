@@ -14,11 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#pragma once
+
 #include <cmath>
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <random>
+#ifdef VOSTOK_RIPPLES_STANDALONE
+#include <dsp/filter.hpp>
+#include <math.hpp>
+#include <simd/functions.hpp>
+#else
 #include "rack.hpp"
+#endif
 #include "aafilter.hpp"
 
 using namespace rack;

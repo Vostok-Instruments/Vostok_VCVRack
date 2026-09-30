@@ -51,14 +51,22 @@ struct Fuji : Module {
 	}
 
 	dsp::ExponentialSlewLimiter attackSlew[NUM_CHANNELS];
-	dsp::ExponentialSlewLimiter decaySlew[NUM_CHANNELS];
 	dsp::SchmittTrigger gateTrigger[NUM_CHANNELS];
-	dsp::SchmittTrigger loopTrigger[NUM_CHANNELS];
-	dsp::PulseGenerator pulseGen[NUM_CHANNELS];
 	dsp::ClockDivider lightDivider;
 	const float lambdaFuji = 10.f;
 	bool rising[NUM_CHANNELS] = {false, false, false, false, false, false};
 	bool triggerChannels[NUM_CHANNELS] = {true, true, true, true, true, true};
+
+    void onReset(const ResetEvent &e) override {
+        Module::onReset(e);
+        for (int i = 0; i < NUM_CHANNELS; i++) {
+            attackSlew[i].reset();
+            gateTrigger[i].reset();
+            rising[i] = false;
+            triggerChannels[i] = true;
+        }
+        lightDivider.clock = lightDivider.division - 1;
+    }
 
 	void process(const ProcessArgs &args) override {
 		const bool doUpdate = lightDivider.process();

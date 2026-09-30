@@ -123,7 +123,8 @@ struct Hive : Module {
 		rightIns *= gains * simd::sqrt(panRight) * panRight;
 
 		// outputs
-		float masterGain = std::pow(params[MASTER_PARAM].getValue(), 2);
+        const float master = params[MASTER_PARAM].getValue();
+        const float masterGain = master * master;
 		float leftSum = masterGain * (leftIns[0] + leftIns[1] + leftIns[2] + leftIns[3] + expanderLeftSum);
 		float rightSum = masterGain * (rightIns[0] + rightIns[1] + rightIns[2] + rightIns[3] + expanderRightSum);
 
@@ -138,15 +139,14 @@ struct Hive : Module {
 		leftMeter.process(args.sampleTime, std::abs(leftSum / 8.f));
 		rightMeter.process(args.sampleTime, std::abs(rightSum / 8.f));
 
-		float_4 leftsForLights = simd::abs(leftIns / 12.f);
-		float_4 rightsForLights = simd::abs(rightIns / 12.f);
-		for (int i = 0; i < NUM_CHANNELS; ++i) {
-			lights[NUM_LIGHT + i * 2].setBrightnessSmooth(leftsForLights[i], args.sampleTime);
-			lights[NUM_LIGHT + i * 2 + 1].setBrightnessSmooth(rightsForLights[i], args.sampleTime);
-		}
-
 		if (lightDivider.process()) {
 			const float sampleTime = args.sampleTime * lightUpdateRate;
+            const float_4 leftsForLights = simd::clamp(simd::abs(leftIns / 12.f), 0.f, 1.f);
+            const float_4 rightsForLights = simd::clamp(simd::abs(rightIns / 12.f), 0.f, 1.f);
+            for (int i = 0; i < NUM_CHANNELS; ++i) {
+                lights[NUM_LIGHT + i * 2].setBrightnessSmooth(leftsForLights[i], sampleTime);
+                lights[NUM_LIGHT + i * 2 + 1].setBrightnessSmooth(rightsForLights[i], sampleTime);
+            }
 			lights[LEFT_LIGHT].setBrightnessSmooth(leftMeter.getBrightness(-3.0f, 0.f), sampleTime);
 			lights[RIGHT_LIGHT].setBrightnessSmooth(rightMeter.getBrightness(-3.0f, 0.f), sampleTime);
 		}

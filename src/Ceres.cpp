@@ -60,7 +60,7 @@ struct Ceres : Module {
             mix += out * (isSummed ? 1.f : 0.f);
 
             outputs[OUT1_OUTPUT + i].setVoltage(out);
-            if (updateLEDs) {
+            if (updateLEDs && i < NUM_CHANNELS - 1) {
                 const float sampleTime = args.sampleTime * lightUpdateRate;
                 lights[NUM1_LIGHT + i].setBrightnessSmooth(out / 4.f, sampleTime, lambda);
             }
@@ -72,6 +72,9 @@ struct Ceres : Module {
 
         // channel 6 is always the mix output
         outputs[OUT1_OUTPUT + 5].setVoltage(mix);
+        if (updateLEDs) {
+            lights[NUM1_LIGHT + 5].setBrightnessSmooth(mix / 4.f, args.sampleTime * lightUpdateRate, lambda);
+        }
     }
 
     json_t *dataToJson() override {
@@ -126,7 +129,7 @@ struct CeresWidget : ModuleWidget {
 
         menu->addChild(new MenuSeparator());
         menu->addChild(createSubmenuItem("Hardware compatibility", "", [=](Menu *menu) {
-            menu->addChild(createBoolPtrMenuItem("Clip Output ±10V", "", &ceres->clipOutput));
+            menu->addChild(createBoolPtrMenuItem("Clip mix output ±10V", "", &ceres->clipOutput));
         }));
     }
 };
