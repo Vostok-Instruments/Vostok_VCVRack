@@ -154,7 +154,8 @@ struct Sigma : Module {
             const bool infiniteMode = normalizedLength > LENGTH_INFINITE_THRESHOLD;
 
             if (gateTriggers[ch].process(inputs[GATE_INPUT + ch].getVoltage())) {
-                const bool retriggering = infiniteStates[ch] || pulseGens[ch].isHigh() || pendingRetriggers[ch];
+                const bool isHigh = pulseGens[ch].remaining > 0.f;
+                const bool retriggering = infiniteStates[ch] || isHigh || pendingRetriggers[ch];
                 infiniteStates[ch] = infiniteMode;
 
                 if (!infiniteMode) {

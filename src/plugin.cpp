@@ -14,7 +14,7 @@ void init(Plugin* p) {
 	p->addModel(modelPath);
 	p->addModel(modelTrace);
 	p->addModel(modelAsset);
-	// p->addModel(modelAtlas);
+	p->addModel(modelAtlas);
 	p->addModel(modelCeres);
 	p->addModel(modelFuji);
 	p->addModel(modelSena);
