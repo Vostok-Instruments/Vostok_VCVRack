@@ -14,7 +14,7 @@ jobs:
     name: ${{ matrix.platform }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/qno/rack-plugin-toolchain-win-linux
+      image: ghcr.io/bloodbat/rack-plugin-toolchain-win-linux:rack-sdk-2.6.6
       options: --user root
     strategy:
       fail-fast: false
