@@ -4,7 +4,7 @@
 // engine and the economical engine can be compared without changing either
 // implementation.  The four cells are trapezoidal (TPT) one-poles.  A
 // sample's cascade is affine in the filter input, which lets us close the
-// resonance loop with two inexpensive Newton iterations instead of a
+// resonance loop with a bounded Newton solve instead of a
 // sub-stepped ODE solve.
 #pragma once
 
@@ -108,14 +108,20 @@ struct AtlasTptEngine {
         const float feedbackCutoff = std::max(cutoff, ripples::kFreqKnobMin) / 1000.f;
         const float feedbackTilt = std::clamp(std::pow(feedbackCutoff, parameters.feedbackCutoffTilt), 0.05f, 20.f);
         const float otaScale = ripples::kFilterCellR * parameters.feedbackScale * feedbackTilt;
-        float filterInput = input * inputGain;
-        // Newton's derivative uses the affine stage-4 slope.  Two iterations
-        // are enough for the bounded OTA curve and are still much cheaper
-        // than Ripples' 3x oversampled RK2 core.
-        for (int iteration = 0; iteration < 2; ++iteration) {
+        const float baseInput = input * inputGain;
+        float filterInput = baseInput;
+        // Abrupt high-cutoff changes can need more than two updates. Stop
+        // at float-scale accuracy without advancing the frozen cell states.
+        for (int iteration = 0; iteration < 5; ++iteration) {
             const float lp4 = alpha * filterInput + beta;
             const float feedbackVoltage = lp4 * ripples::kFeedbackGain;
             const float ota = OTA(feedforward * ripples::kFeedforwardGain, feedbackVoltage, smoothedResCurrent);
+            const float feedback = otaScale * ota;
+            const float residual = filterInput - baseInput - feedback;
+            const float tolerance = 2e-7f * (1.f + std::abs(baseInput) + std::abs(feedback));
+            if (std::abs(residual) <= tolerance) {
+                break;
+            }
             // OTA(vp, vn, i) differentiates as dOTA/dvi, vi=vp-vn.  Since
             // vn=kFeedbackGain*y4 and y4=alpha*u+beta, the feedback term's
             // contribution to d(u-base-OTA)/du is +dOTA/dvi*kFeedbackGain*
@@ -123,7 +129,6 @@ struct AtlasTptEngine {
             const float derivative =
                 1.f + otaDerivative(feedforward * ripples::kFeedforwardGain, feedbackVoltage, smoothedResCurrent) *
                           ripples::kFeedbackGain * alpha * otaScale;
-            const float residual = filterInput - input * inputGain - otaScale * ota;
             filterInput -= residual / std::max(derivative, 0.25f);
         }
 
@@ -260,11 +265,36 @@ struct AtlasTptEngine4 {
         feedforwardLowpass[lane] = 0.f;
     }
 
+    // Copy one voice's complete filter history between different SIMD layouts.
+    // Atlas uses this when it changes between four-row mono and per-row poly.
+    void copyLaneFrom(const AtlasTptEngine4 &source, int sourceLane, int destinationLane) {
+        for (int stage = 0; stage < 4; ++stage) {
+            stageState[stage][destinationLane] = source.stageState[stage][sourceLane];
+        }
+        smoothedVOct[destinationLane] = source.smoothedVOct[sourceLane];
+        smoothedResCurrent[destinationLane] = source.smoothedResCurrent[sourceLane];
+        feedforwardLowpass[destinationLane] = source.feedforwardLowpass[sourceLane];
+    }
+
     // mode: 0 = LP, 1 = HP, 2 = BP.  Only the selected output is clipped;
     // calculating the three internal taps is still required by the filter
     // topology and costs less than maintaining three separate paths.
     float_4 process(float_4 input, float_4 frequencyCv, float_4 fmCv, float_4 resonanceCv, float freqKnob, float resKnob,
                     bool addLowend, bool gainCompensationEnabled, bool clipOutputs, int mode) {
+        return processCore(input, frequencyCv, fmCv, resonanceCv, float_4(freqKnob), float_4(resKnob), addLowend,
+                           gainCompensationEnabled, clipOutputs, mode);
+    }
+
+    float_4 process(float_4 input, float_4 frequencyCv, float_4 fmCv, float_4 resonanceCv, float_4 freqKnob, float_4 resKnob,
+                    bool addLowend, bool gainCompensationEnabled, bool clipOutputs, float_4 mode) {
+        return processCore(input, frequencyCv, fmCv, resonanceCv, freqKnob, resKnob, addLowend, gainCompensationEnabled,
+                           clipOutputs, mode);
+    }
+
+  private:
+    template <typename Mode>
+    float_4 processCore(float_4 input, float_4 frequencyCv, float_4 fmCv, float_4 resonanceCv, float_4 freqKnob,
+                        float_4 resKnob, bool addLowend, bool gainCompensationEnabled, bool clipOutputs, Mode mode) {
         float_4 vOct = (freqKnob - 1.f) * ripples::kFreqKnobVoltage + frequencyCv + fmCv;
         vOct = simd::fmin(vOct, 0.f);
         const float_4 correctedVOct = simd::fmax(vOct, std::log2(ripples::kFreqKnobMin / ripples::kFreqKnobMax));
@@ -299,16 +329,25 @@ struct AtlasTptEngine4 {
 
         const float inputGain = ripples::kFilterInputGain;
         const float_4 otaScale = ripples::kFilterCellR;
-        float_4 filterInput = input * inputGain;
-        for (int iteration = 0; iteration < 2; ++iteration) {
+        const float_4 baseInput = input * inputGain;
+        float_4 filterInput = baseInput;
+        for (int iteration = 0; iteration < 5; ++iteration) {
             const float_4 lp4 = alpha * filterInput + beta;
             const float_4 feedbackVoltage = lp4 * ripples::kFeedbackGain;
             const float_4 ota = OTA(feedforward * ripples::kFeedforwardGain, feedbackVoltage, smoothedResCurrent);
+            const float_4 feedback = otaScale * ota;
+            const float_4 residual = filterInput - baseInput - feedback;
+            const float_4 tolerance = 2e-7f * (1.f + simd::fabs(baseInput) + simd::fabs(feedback));
+            const float_4 active = simd::fabs(residual) > tolerance;
+            if (simd::movemask(active) == 0) {
+                break;
+            }
             const float_4 derivative =
                 1.f + otaDerivative(feedforward * ripples::kFeedforwardGain, feedbackVoltage, smoothedResCurrent) *
                           ripples::kFeedbackGain * alpha * otaScale;
-            const float_4 residual = filterInput - input * inputGain - otaScale * ota;
-            filterInput -= residual / simd::fmax(derivative, 0.25f);
+            // A lane that has converged keeps its result while other lanes
+            // finish; its stopping rule matches the scalar engine.
+            filterInput -= simd::ifelse(active, residual / simd::fmax(derivative, 0.25f), float_4::zero());
         }
 
         float_4 stageInputAlpha = 1.f;
@@ -330,26 +369,33 @@ struct AtlasTptEngine4 {
         }
 
         const float_4 gainCompensation = gainCompensationEnabled ? gainCompensationFor(resonanceKnob) : float_4(1.f);
-        float_4 output;
-        if (mode == 0) {
-            output = outputs[3] * ripples::kLP4Gain * gainCompensation;
-        } else if (mode == 2) {
-            output = bp4 * ripples::kBP4Gain * gainCompensation;
-        } else {
-            // Atlas applies its 0.5 HP correction after the module output
-            // clip, matching the scalar Frame contract.
-            output = hp2 * ripples::kHP2Gain;
-        }
+        float_4 output = selectOutput(mode, hp2, bp4, outputs[3], gainCompensation);
         if (clipOutputs) {
             output = clipOutput(output);
         }
-        if (mode == 1) {
-            output *= 0.5f;
-        }
-        return -output;
+        return -applyHpGain(mode, output);
     }
 
-  private:
+    static float_4 selectOutput(int mode, float_4 hp2, float_4 bp4, float_4 lp4, float_4 compensation) {
+        if (mode == 0) {
+            return lp4 * ripples::kLP4Gain * compensation;
+        }
+        if (mode == 2) {
+            return bp4 * ripples::kBP4Gain * compensation;
+        }
+        return hp2 * ripples::kHP2Gain;
+    }
+
+    static float_4 selectOutput(float_4 mode, float_4 hp2, float_4 bp4, float_4 lp4, float_4 compensation) {
+        return simd::ifelse(mode == 0.f, lp4 * ripples::kLP4Gain * compensation,
+                            simd::ifelse(mode == 2.f, bp4 * ripples::kBP4Gain * compensation, hp2 * ripples::kHP2Gain));
+    }
+
+    // Atlas's HP level correction follows clipping in both layouts.
+    static float_4 applyHpGain(int mode, float_4 output) { return mode == 1 ? output * 0.5f : output; }
+
+    static float_4 applyHpGain(float_4 mode, float_4 output) { return output * simd::ifelse(mode == 1.f, 0.5f, 1.f); }
+
     float sampleTime = 1.f;
     float controlSmoothing = 0.f;
     float feedforwardSmoothing = 0.f;
